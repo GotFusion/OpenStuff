@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openstaff.local/schemas/capture/normalized-event.schema.json",
+  "title": "NormalizedEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "normalizedEventId",
+    "sourceEventId",
+    "sessionId",
+    "timestamp",
+    "eventType",
+    "target",
+    "contextSnapshot",
+    "confidence",
+    "normalizerVersion"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "capture.normalized.v0"
+    },
+    "normalizedEventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sourceEventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "click"
+      ]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "coordinate"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "coordinate"
+          ]
+        },
+        "coordinate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x",
+            "y",
+            "coordinateSpace"
+          ],
+          "properties": {
+            "x": {
+              "type": "integer"
+            },
+            "y": {
+              "type": "integer"
+            },
+            "coordinateSpace": {
+              "type": "string",
+              "enum": [
+                "screen"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "contextSnapshot": {
+      "$ref": "./context-snapshot.schema.json"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "normalizerVersion": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

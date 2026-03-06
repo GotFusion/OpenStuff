@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openstaff.local/schemas/capture/raw-event.schema.json",
+  "title": "RawEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "sessionId",
+    "timestamp",
+    "source",
+    "action",
+    "pointer",
+    "contextSnapshot"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "capture.raw.v0"
+    },
+    "eventId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "mouse"
+      ]
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "leftClick",
+        "rightClick",
+        "doubleClick"
+      ]
+    },
+    "pointer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "coordinateSpace"
+      ],
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        },
+        "coordinateSpace": {
+          "type": "string",
+          "enum": [
+            "screen"
+          ]
+        }
+      }
+    },
+    "contextSnapshot": {
+      "$ref": "./context-snapshot.schema.json"
+    },
+    "modifiers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "command",
+          "shift",
+          "option",
+          "control"
+        ]
+      },
+      "uniqueItems": true
+    }
+  }
+}

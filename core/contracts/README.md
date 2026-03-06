@@ -8,6 +8,10 @@ Shared contracts for cross-module communication.
 - Knowledge contracts used by knowledge and skills pipeline.
 - Error/status code catalog shared by runtime modules.
 
+## Current Contracts
+
+- `CaptureEventContracts.swift`: `RawEvent`, `ContextSnapshot`, `NormalizedEvent`.
+
 ## Rule
 
 Any payload crossing module boundaries must reference a contract defined in this directory.

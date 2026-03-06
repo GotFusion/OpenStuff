@@ -31,15 +31,18 @@
 ## 阶段 1：采集 MVP（Day 1 ~ Day 4）
 
 ### TODO 1.1 事件模型定义（最关键）
-- [ ] 定义 `RawEvent`（原始事件）。
-- [ ] 定义 `ContextSnapshot`（上下文快照：app/window）。
-- [ ] 定义 `NormalizedEvent`（标准化事件）。
+- [x] 定义 `RawEvent`（原始事件）。
+- [x] 定义 `ContextSnapshot`（上下文快照：app/window）。
+- [x] 定义 `NormalizedEvent`（标准化事件）。
 
 **输出物**
 - `core/capture` 下 schema 文档或类型定义。
+- `core/capture/event-model-v0.md`
+- `core/capture/schemas/*.schema.json`
+- `core/contracts/CaptureEventContracts.swift`
 
 **验收标准**
-- [ ] 能覆盖“鼠标点击 + 前台应用 + 时间戳 + 会话 ID”。
+- [x] 能覆盖“鼠标点击 + 前台应用 + 时间戳 + 会话 ID”。
 
 ### TODO 1.2 采集引擎最小实现
 - [ ] macOS 权限检查（辅助功能权限）。

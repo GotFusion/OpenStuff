@@ -63,16 +63,17 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 
 建议采用 `JSONL` 便于流式追加与审计，单行一条事件或步骤，例如：
 
-- `session_id`：学习会话 ID。
+- `schemaVersion`：事件 schema 版本（如 `capture.raw.v0`）。
+- `eventId`：事件唯一 ID。
+- `sessionId`：学习会话 ID。
 - `timestamp`：事件时间。
-- `app`：应用名。
-- `window`：窗口标题。
+- `contextSnapshot.appName`：应用名。
+- `contextSnapshot.windowTitle`：窗口标题。
 - `action`：点击/输入/快捷键等动作。
-- `target`：操作对象（按钮、菜单、区域）。
-- `context`：上下文描述。
-- `confidence`：模型解释置信度（后处理字段）。
+- `target`：操作目标（v0 使用坐标）。
+- `confidence`：标准化置信度（`NormalizedEvent`）。
 
-后续可在知识汇总阶段导出“任务级”结构文件用于 skill 生成。
+详细字段定义见 `core/capture/event-model-v0.md` 与 `core/capture/schemas/*.schema.json`。
 
 ---
 
@@ -105,19 +106,23 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成编码规范文档：`docs/coding-conventions.md`。
 - 新增 `core/contracts/` 共享契约目录与 `data/` 本地数据目录基线。
 - 在 `apps/macos` 落地 SwiftUI 最小空应用，并提供统一启动命令 `make dev`。
+- 完成阶段 1.1 事件模型定义：`RawEvent` / `ContextSnapshot` / `NormalizedEvent`。
+- 新增事件 schema 文档、JSON Schema、样例 JSONL 与 `ADR-0001-event-schema.md`。
 
 ### 未开始
 - 采集引擎代码实现。
-- 知识 schema 定义与落盘实现。
+- 事件采集进程（权限检查、点击监听、上下文抓取）。
+- JSONL 落盘与 session 分文件轮转。
+- 知识 schema 定义与任务切片实现。
 - 与 ChatGPT 的脚本联通。
 - OpenClaw skills 转换与执行联调。
 - 业务级 GUI 原型与前端实现。
 
 ### 下一步建议
-1. 开始阶段 1：先定义 `RawEvent` / `ContextSnapshot` / `NormalizedEvent` 契约。
-2. 实现最小采集 Demo（点击 + 前台应用 + 窗口标题 + sessionId）。
-3. 打通 JSONL 落盘（`data/raw-events/{date}/{sessionId}.jsonl`）。
-4. 补 ADR-0001/0002，冻结事件 schema 与存储策略。
+1. 开始 TODO 1.2：实现权限检查与全局点击监听，产出 `RawEvent`。
+2. 在采集器中补 `ContextSnapshot` 读取（前台 app + windowTitle + windowId）。
+3. 开始 TODO 1.3：按 `sessionId` 写入 `data/raw-events/{date}/{sessionId}.jsonl`。
+4. 新增 schema 校验脚本（`scripts/validation`）并在写盘前执行快速校验。
 
 ---
 
