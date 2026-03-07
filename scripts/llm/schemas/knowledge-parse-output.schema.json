@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openstaff.local/schemas/llm/knowledge-parse-output.schema.json",
+  "title": "LLMKnowledgeParseOutput",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "knowledgeItemId",
+    "taskId",
+    "sessionId",
+    "objective",
+    "context",
+    "executionPlan",
+    "safetyNotes",
+    "confidence"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "llm.knowledge-parse.v0"
+    },
+    "knowledgeItemId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "taskId": {
+      "type": "string",
+      "pattern": "^task-[a-z0-9-]+-[0-9]{3}$"
+    },
+    "sessionId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context": {
+      "type": "object",
+      "required": ["appName", "appBundleId", "windowTitle"],
+      "properties": {
+        "appName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "appBundleId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "windowTitle": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "executionPlan": {
+      "type": "object",
+      "required": [
+        "requiresTeacherConfirmation",
+        "steps",
+        "completionCriteria",
+        "failurePolicy"
+      ],
+      "properties": {
+        "requiresTeacherConfirmation": {
+          "type": "boolean"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "stepId",
+              "actionType",
+              "instruction",
+              "target",
+              "sourceEventIds"
+            ],
+            "properties": {
+              "stepId": {
+                "type": "string",
+                "pattern": "^step-[0-9]{3}$"
+              },
+              "actionType": {
+                "type": "string",
+                "enum": ["openApp", "click", "input", "shortcut", "wait", "unknown"]
+              },
+              "instruction": {
+                "type": "string",
+                "minLength": 1
+              },
+              "target": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sourceEventIds": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "completionCriteria": {
+          "type": "object",
+          "required": ["expectedStepCount", "requiredFrontmostAppBundleId"],
+          "properties": {
+            "expectedStepCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "requiredFrontmostAppBundleId": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "failurePolicy": {
+          "type": "object",
+          "required": ["onContextMismatch", "onStepError", "onUnknownAction"],
+          "properties": {
+            "onContextMismatch": {
+              "type": "string",
+              "const": "stopAndAskTeacher"
+            },
+            "onStepError": {
+              "type": "string",
+              "const": "stopAndAskTeacher"
+            },
+            "onUnknownAction": {
+              "type": "string",
+              "const": "stopAndAskTeacher"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "safetyNotes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "additionalProperties": false
+}

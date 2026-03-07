@@ -114,6 +114,7 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成阶段 2.1 任务切片器：`OpenStaffTaskSlicerCLI`（按空闲间隔 + 上下文切换切片，输出 `TaskChunk` 并生成稳定 `task_id`）。
 - 完成阶段 2.2 知识条目格式定义：`KnowledgeItem` schema + `OpenStaffKnowledgeBuilderCLI`（`TaskChunk -> KnowledgeItem` 映射落盘）。
 - 完成阶段 2.3 自动总结初版（无 LLM）：`KnowledgeSummaryGenerator`（规则摘要写入 `KnowledgeItem.summary`）。
+- 完成阶段 3.1 提示词模板系统：新增系统/任务提示词模板、LLM 输出 schema、提示词渲染脚本与 JSON 严格校验脚本（`scripts/llm/*`）。
 
 ### 未开始
 - 与 ChatGPT 的脚本联通。
@@ -121,10 +122,10 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 业务级 GUI 原型与前端实现。
 
 ### 下一步建议
-1. 开始 TODO 3.1：将 `KnowledgeItem` + `summary` 对齐 LLM 提示词模板输入格式。
-2. 增加 `scripts/validation`：对 `data/raw-events/**/*.jsonl`、`data/task-chunks/**/*.json`、`data/knowledge/**/*.json` 做 schema 快速校验。
-3. 为切片器、知识映射器、摘要器补单元测试（边界切分、字段完整性、摘要可读性）。
-4. 开始 TODO 3.2：实现 ChatGPT 调用适配层（重试、超时、限流、请求摘要）。
+1. 开始 TODO 3.2：实现 ChatGPT 调用适配层（重试、超时、限流、请求摘要）。
+2. 开始 TODO 3.3：将 `KnowledgeItem` + LLM 输出映射为 OpenClaw skills 并加入 fallback 校验。
+3. 增加 `scripts/validation`：对 `data/raw-events/**/*.jsonl`、`data/task-chunks/**/*.json`、`data/knowledge/**/*.json` 做 schema 快速校验。
+4. 为切片器、知识映射器、摘要器补单元测试（边界切分、字段完整性、摘要可读性）。
 
 ---
 

@@ -122,14 +122,17 @@
 ## 阶段 3：LLM 解析与 Skill 转换（Day 7 ~ Day 10）
 
 ### TODO 3.1 提示词模板系统
-- [ ] 定义系统提示词、任务提示词、输出格式约束。
-- [ ] 强制 JSON 输出并校验。
+- [x] 定义系统提示词、任务提示词、输出格式约束。
+- [x] 强制 JSON 输出并校验。
 
 **输出物**
 - `scripts/llm/prompts/*.md`（或模板文件）。
+- `scripts/llm/schemas/knowledge-parse-output.schema.json`
+- `scripts/llm/render_knowledge_prompts.py`
+- `scripts/llm/validate_knowledge_parse_output.py`
 
 **验收标准**
-- [ ] 同一输入可稳定输出结构化步骤。
+- [x] 同一输入可稳定输出结构化步骤（提示词渲染采用规范化 JSON；输出可被严格校验）。
 
 ### TODO 3.2 ChatGPT 调用适配层
 - [ ] 封装重试、超时、限流。
@@ -261,7 +264,7 @@
 - [x] 产出首个 `KnowledgeItem` 示例。
 
 ### Day 5
-- [ ] 完成提示词模板 v0。
+- [x] 完成提示词模板 v0。
 - [ ] 跑通 1 条知识 -> LLM 结构化输出。
 
 ### Day 6

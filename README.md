@@ -14,6 +14,8 @@ make dev
 make capture
 make slice
 make knowledge
+make llm-prompts
+make llm-validate
 ```
 
 - `make build`：构建 `apps/macos` 最小壳应用。
@@ -21,6 +23,8 @@ make knowledge
 - `make capture`：启动 Phase 1.3 采集 CLI（全局点击监听 + 上下文抓取 + JSONL 落盘轮转）。
 - `make slice`：启动 Phase 2.1 任务切片 CLI（session raw-events -> task chunks）。
 - `make knowledge`：启动 Phase 2.3 知识构建 CLI（task chunks -> knowledge items + rule summary）。
+- `make llm-prompts`：渲染 Phase 3.1 提示词模板（KnowledgeItem -> system/user prompts）。
+- `make llm-validate`：校验 LLM 结构化输出样例（强制 JSON + 一致性检查）。
 
 ## 目录概览
 
