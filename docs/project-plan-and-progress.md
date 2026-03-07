@@ -120,13 +120,15 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成阶段 4.1 模式状态机：新增 `ModeStateMachine`、`OrchestratorContracts`、`OpenStaffOrchestratorCLI`，实现三模式合法切换校验、切换守卫与能力白名单，非法切换会拒绝并输出结构化日志。
 - 完成阶段 4.2 辅助模式闭环：新增 `AssistModeLoop` + `AssistActionExecutor` + `AssistLoopLogWriter` + `OpenStaffAssistCLI`，实现“规则预测 -> 弹窗确认 -> 执行 -> 回写日志”最小闭环。
 - 完成阶段 4.3 学生模式闭环：新增 `StudentModeLoop` + `StudentSkillExecutor` + `StudentLoopLogWriter` + `StudentReviewReportWriter` + `OpenStaffStudentCLI`，实现“目标输入 -> 自动规划 -> 技能执行 -> 结构化审阅报告”最小闭环。
+- 完成阶段 5.1 主界面与模式切换：升级 `OpenStaffApp` 为 Dashboard，提供三模式切换组件（复用状态机守卫）、当前状态卡片、权限状态（辅助功能与数据目录可写性）及最近任务列表（从 `data/logs` + `data/knowledge` 汇总）。
 
 ### 未开始
 - OpenClaw skills 执行联调。
-- 业务级 GUI 原型与前端实现。
+- GUI 阶段 5.2 学习记录与知识浏览。
+- GUI 阶段 5.3 审阅与反馈。
 
 ### 下一步建议
-1. 开始阶段 5.1：实现 GUI 三模式切换组件与状态展示。
+1. 开始阶段 5.2：实现会话列表、任务详情与知识条目浏览。
 2. API 可用后补充 `provider=openai` 联机验证（模型行为、限流参数、错误码映射）并补充 skill 端到端执行联调。
 3. 增加 `scripts/validation`：对 `data/raw-events/**/*.jsonl`、`data/task-chunks/**/*.json`、`data/knowledge/**/*.json`、`data/skills/**/*.json` 做 schema 快速校验。
 4. 为切片器、映射器、摘要器补单元测试（边界切分、字段完整性、fallback 稳定性）。

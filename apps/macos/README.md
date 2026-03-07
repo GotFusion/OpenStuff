@@ -1,6 +1,6 @@
 # apps/macos/
 
-macOS GUI shell built with SwiftUI (Phase 0 baseline).
+macOS GUI + CLI package built with SwiftUI and Swift 6.
 
 ## Run
 
@@ -22,7 +22,7 @@ make build
 ## Layout
 
 - `Package.swift`: Swift package entry for macOS app shell.
-- `Sources/OpenStaffApp/OpenStaffApp.swift`: minimal window for baseline validation.
+- `Sources/OpenStaffApp/OpenStaffApp.swift`: Phase 5.1 dashboard UI（模式切换、状态展示、权限状态、最近任务）。
 - `Sources/OpenStaffCaptureCLI/`: Phase 1.3 capture CLI (permission check, click capture, context snapshot, JSONL persistence + rotation).
 - `Sources/OpenStaffTaskSlicerCLI/`: Phase 2.1 task slicer CLI (session events -> TaskChunk files).
 - `Sources/OpenStaffKnowledgeBuilderCLI/`: Phase 2.2 knowledge builder CLI (TaskChunk -> KnowledgeItem).
@@ -73,9 +73,9 @@ make knowledge ARGS="--session-id session-20260307-a1 --json"
 Knowledge items are written to:
 - `data/knowledge/{yyyy-mm-dd}/{taskId}.json`
 
-## Planned Features
+## GUI Status (Phase 5.1)
 
-- Three-mode switcher: teaching / assist / student.
-- Capture status panel and permissions state.
-- Knowledge and execution log review panels.
-- Assist confirmation prompt and emergency stop controls.
+- Three-mode switcher: `teaching / assist / student`（复用状态机守卫）。
+- Current status card: 当前模式、状态码、能力白名单、未满足守卫信息。
+- Permission status card: 辅助功能权限 + 数据目录可写性。
+- Recent task panel: 汇总 `data/logs/**/*.log` 与 `data/knowledge/**/*.json`。
