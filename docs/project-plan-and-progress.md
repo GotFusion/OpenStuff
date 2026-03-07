@@ -109,19 +109,20 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成阶段 1.1 事件模型定义：`RawEvent` / `ContextSnapshot` / `NormalizedEvent`。
 - 新增事件 schema 文档、JSON Schema、样例 JSONL 与 `ADR-0001-event-schema.md`。
 - 完成阶段 1.2 采集引擎最小实现：`OpenStaffCaptureCLI`（权限检查、全局点击监听、上下文抓取、本地队列）。
+- 完成阶段 1.3 事件落盘与轮转：`RawEventFileSink`（JSONL 追加写盘、按日期+session 分片、按大小/时间轮转、异常中断恢复追加）。
+- 新增存储策略 ADR：`docs/adr/ADR-0002-storage-strategy.md`。
 
 ### 未开始
-- JSONL 落盘与 session 分文件轮转。
 - 知识 schema 定义与任务切片实现。
 - 与 ChatGPT 的脚本联通。
 - OpenClaw skills 转换与执行联调。
 - 业务级 GUI 原型与前端实现。
 
 ### 下一步建议
-1. 开始 TODO 1.3：为 `OpenStaffCaptureCLI` 增加 JSONL 落盘（按日期 + session 分文件）。
-2. 增加写盘轮转策略（按文件大小阈值切分）和中断恢复追加逻辑。
-3. 新增 schema 校验脚本（`scripts/validation`）并在写盘前执行快速校验。
-4. 补 `ADR-0002-storage-strategy.md`，冻结原始事件存储与轮转规则。
+1. 开始 TODO 2.1：实现 session -> task 的任务切片器（空闲间隔 + 窗口切换规则）。
+2. 开始 TODO 2.2：冻结 `KnowledgeItem` schema（含 `schemaVersion` 与约束字段）。
+3. 增加 `scripts/validation`：对 `data/raw-events/**/*.jsonl` 做 schema 快速校验。
+4. 准备 TODO 2.3：基于规则生成首版任务摘要，形成老师可审阅文本。
 
 ---
 

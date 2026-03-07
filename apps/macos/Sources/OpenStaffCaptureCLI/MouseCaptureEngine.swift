@@ -8,22 +8,27 @@ final class MouseCaptureEngine {
     private let queue: RawEventQueue
     private let contextResolver: FrontmostContextResolver
     private let timestampFormatter: ISO8601DateFormatter
+    private let eventSink: RawEventFileSink
 
     private var monitorToken: Any?
     private let encoder = JSONEncoder()
+    private var hasFatalError = false
 
     var onStopRequested: (() -> Void)?
+    var onFatalError: ((Error) -> Void)?
 
     init(
         sessionId: String,
         maxEvents: Int?,
         printJSON: Bool,
+        eventSink: RawEventFileSink,
         queue: RawEventQueue = RawEventQueue(),
         contextResolver: FrontmostContextResolver = FrontmostContextResolver()
     ) {
         self.sessionId = sessionId
         self.maxEvents = maxEvents
         self.printJSON = printJSON
+        self.eventSink = eventSink
         self.queue = queue
         self.contextResolver = contextResolver
 
@@ -46,12 +51,14 @@ final class MouseCaptureEngine {
     }
 
     func stop() {
-        guard let monitorToken else {
-            return
+        if let monitorToken {
+            NSEvent.removeMonitor(monitorToken)
+            self.monitorToken = nil
         }
 
-        NSEvent.removeMonitor(monitorToken)
-        self.monitorToken = nil
+        if let closeError = tryCloseSink() {
+            print("[STO-IO-CLOSE-FAILED] \(closeError.localizedDescription)")
+        }
     }
 
     private func handleEvent(_ event: NSEvent) {
@@ -73,6 +80,13 @@ final class MouseCaptureEngine {
             modifiers: keyboardModifiers(from: event)
         )
 
+        do {
+            try eventSink.append(rawEvent)
+        } catch {
+            emitFatalErrorOnce(CaptureEngineError.storageWriteFailed(error))
+            return
+        }
+
         let count = queue.enqueue(rawEvent)
 
         if printJSON {
@@ -87,6 +101,24 @@ final class MouseCaptureEngine {
         if let maxEvents, count >= maxEvents {
             onStopRequested?()
         }
+    }
+
+    private func tryCloseSink() -> Error? {
+        do {
+            try eventSink.close()
+            return nil
+        } catch {
+            return CaptureEngineError.storageCloseFailed(error)
+        }
+    }
+
+    private func emitFatalErrorOnce(_ error: Error) {
+        guard !hasFatalError else {
+            return
+        }
+
+        hasFatalError = true
+        onFatalError?(error)
     }
 
     private func mapAction(_ event: NSEvent) -> RawEventAction? {
@@ -130,11 +162,17 @@ final class MouseCaptureEngine {
 
 enum CaptureEngineError: LocalizedError {
     case globalMonitorUnavailable
+    case storageWriteFailed(Error)
+    case storageCloseFailed(Error)
 
     var errorDescription: String? {
         switch self {
         case .globalMonitorUnavailable:
             return "Failed to start global mouse monitor."
+        case .storageWriteFailed(let error):
+            return "Failed to persist captured event: \(error.localizedDescription)"
+        case .storageCloseFailed(let error):
+            return "Failed to close event sink: \(error.localizedDescription)"
         }
     }
 }

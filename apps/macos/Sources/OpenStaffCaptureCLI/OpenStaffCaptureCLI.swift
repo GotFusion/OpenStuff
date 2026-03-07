@@ -22,10 +22,18 @@ struct OpenStaffCaptureCLI {
                 Foundation.exit(2)
             }
 
+            let eventSink = try RawEventFileSink(
+                sessionId: options.sessionId,
+                outputRootDirectory: options.outputDirectoryURL,
+                maxFileSizeBytes: options.rotateMaxBytes,
+                maxFileAgeSeconds: options.rotateMaxSeconds
+            )
+
             let engine = MouseCaptureEngine(
                 sessionId: options.sessionId,
                 maxEvents: options.maxEvents,
-                printJSON: options.printJSON
+                printJSON: options.printJSON,
+                eventSink: eventSink
             )
 
             let signalTrap = SignalTrap {
@@ -40,8 +48,15 @@ struct OpenStaffCaptureCLI {
                 CFRunLoopStop(CFRunLoopGetMain())
             }
 
+            engine.onFatalError = { error in
+                engine.stop()
+                print("[STO-IO-FAILED] Capture stopped due to storage failure: \(error.localizedDescription)")
+                CFRunLoopStop(CFRunLoopGetMain())
+            }
+
             try engine.start()
             print("Capture started. sessionId=\(options.sessionId)")
+            print("Persisting JSONL to \(options.outputDirectoryURL.path)")
             print("Press Ctrl+C to stop.")
             if let maxEvents = options.maxEvents {
                 print("Auto-stop after \(maxEvents) events.")
@@ -65,9 +80,12 @@ struct OpenStaffCaptureCLI {
           make capture ARGS=\"--session-id session-20260307-a1 --max-events 20\"
 
         Flags:
-          --session-id <id>           Set a custom session ID.
+          --session-id <id>           Set a custom session ID (lowercase letters, numbers, hyphen).
           --max-events <n>            Stop automatically after n captured events.
           --json                      Print raw events as JSONL lines.
+          --output-dir <path>         Storage root for raw events. Default: data/raw-events
+          --rotate-max-bytes <n>      Rotate when file exceeds n bytes. Default: 1048576
+          --rotate-max-seconds <n>    Rotate when file age exceeds n seconds (0 disables). Default: 1800
           --no-permission-prompt      Do not trigger macOS accessibility permission prompt.
           --help                      Show this help message.
         """)
@@ -75,9 +93,16 @@ struct OpenStaffCaptureCLI {
 }
 
 struct CaptureCLIOptions {
+    static let defaultOutputDirectory = "data/raw-events"
+    static let defaultRotateMaxBytes: UInt64 = 1_048_576
+    static let defaultRotateMaxSeconds: TimeInterval = 1_800
+
     let sessionId: String
     let maxEvents: Int?
     let printJSON: Bool
+    let outputDirectory: String
+    let rotateMaxBytes: UInt64
+    let rotateMaxSeconds: TimeInterval
     let promptForPermission: Bool
     let showHelp: Bool
 
@@ -85,6 +110,9 @@ struct CaptureCLIOptions {
         var sessionId: String?
         var maxEvents: Int?
         var printJSON = false
+        var outputDirectory = defaultOutputDirectory
+        var rotateMaxBytes = defaultRotateMaxBytes
+        var rotateMaxSeconds = defaultRotateMaxSeconds
         var promptForPermission = true
         var showHelp = false
 
@@ -112,6 +140,32 @@ struct CaptureCLIOptions {
                 maxEvents = parsed
             case "--json":
                 printJSON = true
+            case "--output-dir":
+                index += 1
+                guard index < arguments.count else {
+                    throw CaptureCLIOptionError.missingValue("--output-dir")
+                }
+                outputDirectory = arguments[index]
+            case "--rotate-max-bytes":
+                index += 1
+                guard index < arguments.count else {
+                    throw CaptureCLIOptionError.missingValue("--rotate-max-bytes")
+                }
+
+                guard let parsed = UInt64(arguments[index]), parsed > 0 else {
+                    throw CaptureCLIOptionError.invalidValue("--rotate-max-bytes", arguments[index])
+                }
+                rotateMaxBytes = parsed
+            case "--rotate-max-seconds":
+                index += 1
+                guard index < arguments.count else {
+                    throw CaptureCLIOptionError.missingValue("--rotate-max-seconds")
+                }
+
+                guard let parsed = TimeInterval(arguments[index]), parsed >= 0 else {
+                    throw CaptureCLIOptionError.invalidValue("--rotate-max-seconds", arguments[index])
+                }
+                rotateMaxSeconds = parsed
             case "--no-permission-prompt":
                 promptForPermission = false
             case "--help", "-h":
@@ -123,10 +177,18 @@ struct CaptureCLIOptions {
             index += 1
         }
 
+        let resolvedSessionId = sessionId ?? defaultSessionId()
+        guard isValidSessionId(resolvedSessionId) else {
+            throw CaptureCLIOptionError.invalidValue("--session-id", resolvedSessionId)
+        }
+
         return CaptureCLIOptions(
-            sessionId: sessionId ?? defaultSessionId(),
+            sessionId: resolvedSessionId,
             maxEvents: maxEvents,
             printJSON: printJSON,
+            outputDirectory: outputDirectory,
+            rotateMaxBytes: rotateMaxBytes,
+            rotateMaxSeconds: rotateMaxSeconds,
             promptForPermission: promptForPermission,
             showHelp: showHelp
         )
@@ -138,6 +200,21 @@ struct CaptureCLIOptions {
         formatter.locale = Locale(identifier: "en_US_POSIX")
 
         return "session-\(formatter.string(from: Date()))"
+    }
+
+    private static func isValidSessionId(_ value: String) -> Bool {
+        guard !value.isEmpty else {
+            return false
+        }
+
+        let pattern = "^[a-z0-9-]+$"
+        return value.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    var outputDirectoryURL: URL {
+        let fileManager = FileManager.default
+        let currentDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+        return URL(fileURLWithPath: outputDirectory, relativeTo: currentDirectory).standardizedFileURL
     }
 }
 

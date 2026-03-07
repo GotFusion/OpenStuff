@@ -60,16 +60,17 @@
 - [x] 权限不足时给出明确提示（`CAP-PERMISSION-DENIED`）。
 
 ### TODO 1.3 事件落盘与轮转
-- [ ] JSONL 落盘实现。
-- [ ] 以 session 分文件（例如按日期+sessionId）。
-- [ ] 日志轮转策略（大小/时间）。
+- [x] JSONL 落盘实现。
+- [x] 以 session 分文件（按日期+sessionId 分片）。
+- [x] 日志轮转策略（大小/时间）。
 
 **输出物**
 - `data/raw-events/*.jsonl`
+- `apps/macos/Sources/OpenStaffCaptureCLI/RawEventFileSink.swift`
 
 **验收标准**
-- [ ] 文件可被 `jq` 正确解析。
-- [ ] 异常中断后数据文件可继续追加。
+- [x] 文件可被 `jq` 正确解析（每条事件按 JSONL 单行落盘）。
+- [x] 异常中断后数据文件可继续追加（同日期同 session 自动续写最后可写分片）。
 
 ---
 

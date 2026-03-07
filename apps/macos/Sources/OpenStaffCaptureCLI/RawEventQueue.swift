@@ -1,7 +1,7 @@
 import Foundation
 
 final class RawEventQueue {
-    private var buffer: [RawEvent] = []
+    private var totalCount = 0
     private let lock = NSLock()
 
     @discardableResult
@@ -9,14 +9,15 @@ final class RawEventQueue {
         lock.lock()
         defer { lock.unlock() }
 
-        buffer.append(event)
-        return buffer.count
+        _ = event
+        totalCount += 1
+        return totalCount
     }
 
     var count: Int {
         lock.lock()
         defer { lock.unlock() }
 
-        return buffer.count
+        return totalCount
     }
 }
