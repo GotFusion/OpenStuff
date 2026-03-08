@@ -6,6 +6,7 @@ public struct StudentLoopInput {
     public let taskId: String?
     public let timestamp: String
     public let teacherConfirmed: Bool
+    public let emergencyStopActive: Bool
     public let goal: String
     public let preferredKnowledgeItemId: String?
     public let pendingAssistSuggestion: Bool
@@ -17,6 +18,7 @@ public struct StudentLoopInput {
         taskId: String? = nil,
         timestamp: String,
         teacherConfirmed: Bool,
+        emergencyStopActive: Bool = false,
         goal: String,
         preferredKnowledgeItemId: String? = nil,
         pendingAssistSuggestion: Bool = false,
@@ -27,6 +29,7 @@ public struct StudentLoopInput {
         self.taskId = taskId
         self.timestamp = timestamp
         self.teacherConfirmed = teacherConfirmed
+        self.emergencyStopActive = emergencyStopActive
         self.goal = goal.trimmingCharacters(in: .whitespacesAndNewlines)
         self.preferredKnowledgeItemId = preferredKnowledgeItemId
         self.pendingAssistSuggestion = pendingAssistSuggestion
@@ -169,6 +172,26 @@ public final class StudentModeLoopOrchestrator {
         var latestLogFile: URL?
         let startedAt = formatter.string(from: nowProvider())
 
+        if input.emergencyStopActive || executionContext.emergencyStopActive {
+            latestLogFile = try appendLog(
+                input: input,
+                status: StudentLoopStatusCode.executionFailed.rawValue,
+                errorCode: StudentLoopErrorCode.blockedAction.rawValue,
+                message: "Student loop blocked by emergency stop.",
+                plan: nil,
+                step: nil
+            )
+
+            return StudentLoopRunResult(
+                finalStatus: .blockedByState,
+                plan: nil,
+                report: nil,
+                logFilePath: latestLogFile?.path ?? "",
+                reportFilePath: nil,
+                message: "Emergency stop is active."
+            )
+        }
+
         guard let plan = planner.plan(
             input: StudentPlanningInput(
                 goal: input.goal,
@@ -206,7 +229,8 @@ public final class StudentModeLoopOrchestrator {
                     teacherConfirmed: input.teacherConfirmed,
                     learnedKnowledgeReady: !input.knowledgeItems.isEmpty,
                     executionPlanReady: !plan.steps.isEmpty,
-                    pendingAssistSuggestion: input.pendingAssistSuggestion
+                    pendingAssistSuggestion: input.pendingAssistSuggestion,
+                    emergencyStopActive: input.emergencyStopActive
                 )
             )
 

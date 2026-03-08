@@ -6,6 +6,7 @@ public struct AssistLoopInput {
     public let taskId: String?
     public let timestamp: String
     public let teacherConfirmed: Bool
+    public let emergencyStopActive: Bool
     public let completedStepCount: Int
     public let currentAppName: String?
     public let currentAppBundleId: String?
@@ -17,6 +18,7 @@ public struct AssistLoopInput {
         taskId: String? = nil,
         timestamp: String,
         teacherConfirmed: Bool,
+        emergencyStopActive: Bool = false,
         completedStepCount: Int,
         currentAppName: String?,
         currentAppBundleId: String?,
@@ -27,6 +29,7 @@ public struct AssistLoopInput {
         self.taskId = taskId
         self.timestamp = timestamp
         self.teacherConfirmed = teacherConfirmed
+        self.emergencyStopActive = emergencyStopActive
         self.completedStepCount = max(0, completedStepCount)
         self.currentAppName = currentAppName
         self.currentAppBundleId = currentAppBundleId
@@ -219,6 +222,25 @@ public final class AssistModeLoopOrchestrator {
     ) throws -> AssistLoopRunResult {
         var latestLogFile: URL?
 
+        if input.emergencyStopActive || executionContext.emergencyStopActive {
+            latestLogFile = try appendLog(
+                input: input,
+                status: AssistLoopStatusCode.executionFailed.rawValue,
+                errorCode: AssistLoopErrorCode.blockedAction.rawValue,
+                message: "Assist loop blocked by emergency stop.",
+                suggestion: nil
+            )
+
+            return AssistLoopRunResult(
+                finalStatus: .blockedByState,
+                suggestion: nil,
+                confirmation: nil,
+                execution: nil,
+                logFilePath: latestLogFile?.path ?? "",
+                message: "Emergency stop is active."
+            )
+        }
+
         if modeStateMachine.currentMode != .assist {
             let transitionDecision = modeStateMachine.transition(
                 to: .assist,
@@ -228,7 +250,8 @@ public final class AssistModeLoopOrchestrator {
                     taskId: input.taskId,
                     timestamp: input.timestamp,
                     teacherConfirmed: input.teacherConfirmed,
-                    learnedKnowledgeReady: !input.knowledgeItems.isEmpty
+                    learnedKnowledgeReady: !input.knowledgeItems.isEmpty,
+                    emergencyStopActive: input.emergencyStopActive
                 )
             )
 

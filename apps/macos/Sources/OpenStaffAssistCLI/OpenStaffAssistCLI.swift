@@ -42,6 +42,7 @@ struct OpenStaffAssistCLI {
                 taskId: options.taskId ?? primaryItem.taskId,
                 timestamp: options.timestamp,
                 teacherConfirmed: options.teacherConfirmed,
+                emergencyStopActive: options.emergencyStopActive,
                 completedStepCount: options.completedStepCount,
                 currentAppName: currentAppName,
                 currentAppBundleId: currentAppBundleId,
@@ -53,7 +54,8 @@ struct OpenStaffAssistCLI {
                 sessionId: sessionId,
                 taskId: options.taskId ?? primaryItem.taskId,
                 dryRun: !options.realExecution,
-                simulateFailure: options.simulateExecutionFailure
+                simulateFailure: options.simulateExecutionFailure,
+                emergencyStopActive: options.emergencyStopActive
             )
 
             let result = try orchestrator.run(input: input, executionContext: executionContext)
@@ -94,6 +96,7 @@ struct OpenStaffAssistCLI {
           --completed-steps <n>              Already completed step count. Default: 0
           --auto-confirm <yes|no>            Mock popup response from CLI flag.
           --teacher-not-confirmed            Set teacherConfirmed=false for mode transition guard.
+          --emergency-stop-active            Set emergency stop active (blocks execution).
           --real-execution                   Disable dry-run tag in executor output.
           --simulate-execution-failure       Force execution failure for validation.
           --logs-root <path>                 Assist log root directory. Default: data/logs
@@ -135,6 +138,7 @@ struct AssistCLIOptions {
     let completedStepCount: Int
     let autoConfirm: Bool?
     let teacherConfirmed: Bool
+    let emergencyStopActive: Bool
     let realExecution: Bool
     let simulateExecutionFailure: Bool
     let logsRootPath: String
@@ -161,6 +165,7 @@ struct AssistCLIOptions {
         var completedStepCount = 0
         var autoConfirm: Bool?
         var teacherConfirmed = true
+        var emergencyStopActive = false
         var realExecution = false
         var simulateExecutionFailure = false
         var logsRootPath = defaultLogsRoot
@@ -237,6 +242,8 @@ struct AssistCLIOptions {
                 }
             case "--teacher-not-confirmed":
                 teacherConfirmed = false
+            case "--emergency-stop-active":
+                emergencyStopActive = true
             case "--real-execution":
                 realExecution = true
             case "--simulate-execution-failure":
@@ -304,6 +311,7 @@ struct AssistCLIOptions {
                 completedStepCount: completedStepCount,
                 autoConfirm: autoConfirm,
                 teacherConfirmed: teacherConfirmed,
+                emergencyStopActive: emergencyStopActive,
                 realExecution: realExecution,
                 simulateExecutionFailure: simulateExecutionFailure,
                 logsRootPath: logsRootPath,
@@ -324,6 +332,7 @@ struct AssistCLIOptions {
             completedStepCount: completedStepCount,
             autoConfirm: autoConfirm,
             teacherConfirmed: teacherConfirmed,
+            emergencyStopActive: emergencyStopActive,
             realExecution: realExecution,
             simulateExecutionFailure: simulateExecutionFailure,
             logsRootPath: logsRootPath,

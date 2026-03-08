@@ -1,4 +1,5 @@
 import ApplicationServices
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -25,7 +26,7 @@ struct OpenStaffDashboardView: View {
                     Text("OpenStaff 主界面")
                         .font(.title2)
                         .fontWeight(.semibold)
-                    Text("阶段 5.3：审阅与反馈")
+                    Text("阶段 6.1：安全控制")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -36,6 +37,10 @@ struct OpenStaffDashboardView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    Text(viewModel.emergencyStopStatusText)
+                        .font(.caption)
+                        .foregroundStyle(viewModel.emergencyStopActive ? .red : .secondary)
+
                     HStack(spacing: 8) {
                         Button("刷新任务与权限") {
                             viewModel.refreshDashboard(promptAccessibilityPermission: false)
@@ -45,6 +50,19 @@ struct OpenStaffDashboardView: View {
                         Button("申请辅助功能权限") {
                             viewModel.refreshDashboard(promptAccessibilityPermission: true)
                         }
+
+                        Button("紧急停止") {
+                            viewModel.activateEmergencyStop(source: .uiButton)
+                        }
+                        .keyboardShortcut(".", modifiers: [.command, .shift])
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+
+                        Button("解除停止") {
+                            viewModel.releaseEmergencyStop()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!viewModel.emergencyStopActive)
                     }
                 }
             }
@@ -78,7 +96,19 @@ struct OpenStaffDashboardView: View {
                             Toggle("存在待确认建议", isOn: $viewModel.guardInputs.pendingAssistSuggestion)
                         }
                         GridRow {
-                            Toggle("紧急停止已激活", isOn: $viewModel.guardInputs.emergencyStopActive)
+                            Toggle(
+                                "紧急停止已激活",
+                                isOn: Binding(
+                                    get: { viewModel.guardInputs.emergencyStopActive },
+                                    set: { isOn in
+                                        if isOn {
+                                            viewModel.activateEmergencyStop(source: .uiButton)
+                                        } else {
+                                            viewModel.releaseEmergencyStop()
+                                        }
+                                    }
+                                )
+                            )
                             Spacer(minLength: 0)
                         }
                     }
@@ -473,6 +503,7 @@ struct OpenStaffDashboardView: View {
         .padding(20)
         .frame(minWidth: 1080, minHeight: 1120)
         .task {
+            viewModel.startSafetyControlsIfNeeded()
             viewModel.refreshDashboard(promptAccessibilityPermission: false)
         }
     }
@@ -496,6 +527,82 @@ struct PermissionRow: View {
     }
 }
 
+enum EmergencyStopSource {
+    case uiButton
+    case globalHotkey
+
+    var displayName: String {
+        switch self {
+        case .uiButton:
+            return "UI按钮"
+        case .globalHotkey:
+            return "全局快捷键"
+        }
+    }
+}
+
+final class EmergencyStopHotkeyMonitor {
+    private let handler: () -> Void
+    private var globalMonitorToken: Any?
+    private var localMonitorToken: Any?
+
+    init(handler: @escaping () -> Void) {
+        self.handler = handler
+    }
+
+    func start() {
+        guard globalMonitorToken == nil, localMonitorToken == nil else {
+            return
+        }
+
+        globalMonitorToken = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else {
+                return
+            }
+            if self.isEmergencyStopShortcut(event: event) {
+                self.handler()
+            }
+        }
+
+        localMonitorToken = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else {
+                return event
+            }
+            if self.isEmergencyStopShortcut(event: event) {
+                self.handler()
+                return nil
+            }
+            return event
+        }
+    }
+
+    func stop() {
+        if let globalMonitorToken {
+            NSEvent.removeMonitor(globalMonitorToken)
+            self.globalMonitorToken = nil
+        }
+        if let localMonitorToken {
+            NSEvent.removeMonitor(localMonitorToken)
+            self.localMonitorToken = nil
+        }
+    }
+
+    private func isEmergencyStopShortcut(event: NSEvent) -> Bool {
+        let requiredFlags: NSEvent.ModifierFlags = [.command, .shift]
+        let modifiersMatch = event.modifierFlags.intersection(requiredFlags) == requiredFlags
+        guard modifiersMatch else {
+            return false
+        }
+
+        let character = event.charactersIgnoringModifiers ?? ""
+        if character == "." {
+            return true
+        }
+
+        return event.keyCode == 47
+    }
+}
+
 @MainActor
 final class OpenStaffDashboardViewModel: ObservableObject {
     @Published var currentMode: OpenStaffMode
@@ -513,6 +620,9 @@ final class OpenStaffDashboardViewModel: ObservableObject {
     @Published private(set) var latestFeedbackForSelectedLog: TeacherFeedbackSummary?
     @Published private(set) var feedbackStatusMessage: String?
     @Published private(set) var feedbackWriteSucceeded = false
+    @Published private(set) var emergencyStopActive = false
+    @Published private(set) var emergencyStopActivatedAt: Date?
+    @Published private(set) var emergencyStopSource: EmergencyStopSource?
     @Published private(set) var lastRefreshedAt: Date?
 
     private let logger = InMemoryOrchestratorStateLogger()
@@ -521,6 +631,12 @@ final class OpenStaffDashboardViewModel: ObservableObject {
     private var traceSequence = 0
     private var learningSnapshot = LearningSnapshot.empty
     private var executionReviewSnapshot = ExecutionReviewSnapshot.empty
+    private var safetyControlsStarted = false
+    private lazy var emergencyStopHotkeyMonitor = EmergencyStopHotkeyMonitor { [weak self] in
+        DispatchQueue.main.async { [weak self] in
+            self?.activateEmergencyStop(source: .globalHotkey)
+        }
+    }
 
     init(initialMode: OpenStaffMode = .teaching) {
         self.currentMode = initialMode
@@ -573,6 +689,16 @@ final class OpenStaffDashboardViewModel: ObservableObject {
             return nil
         }
         return executionReviewSnapshot.logById[selectedExecutionLogId]
+    }
+
+    var emergencyStopStatusText: String {
+        guard emergencyStopActive else {
+            return "紧急停止：未激活（全局快捷键 Cmd+Shift+.）"
+        }
+
+        let activatedAt = emergencyStopActivatedAt.map(OpenStaffDateFormatter.displayString(from:)) ?? "unknown-time"
+        let sourceText = emergencyStopSource?.displayName ?? "unknown-source"
+        return "紧急停止：已激活（\(sourceText) @ \(activatedAt)）"
     }
 
     func modeDisplayName(for mode: OpenStaffMode) -> String {
@@ -671,6 +797,34 @@ final class OpenStaffDashboardViewModel: ObservableObject {
             feedbackWriteSucceeded = false
             feedbackStatusMessage = "反馈保存失败：\(error.localizedDescription)"
         }
+    }
+
+    func startSafetyControlsIfNeeded() {
+        guard !safetyControlsStarted else {
+            return
+        }
+        safetyControlsStarted = true
+        emergencyStopHotkeyMonitor.start()
+    }
+
+    func activateEmergencyStop(source: EmergencyStopSource) {
+        emergencyStopActive = true
+        emergencyStopActivatedAt = Date()
+        emergencyStopSource = source
+        guardInputs.emergencyStopActive = true
+
+        feedbackWriteSucceeded = true
+        feedbackStatusMessage = "安全控制：紧急停止已激活。"
+    }
+
+    func releaseEmergencyStop() {
+        emergencyStopActive = false
+        emergencyStopActivatedAt = nil
+        emergencyStopSource = nil
+        guardInputs.emergencyStopActive = false
+
+        feedbackWriteSucceeded = true
+        feedbackStatusMessage = "安全控制：紧急停止已解除。"
     }
 
     private func reconcileLearningSelection() {

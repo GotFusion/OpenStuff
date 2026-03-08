@@ -42,6 +42,7 @@ struct OpenStaffStudentCLI {
                 taskId: taskId,
                 timestamp: options.timestamp,
                 teacherConfirmed: options.teacherConfirmed,
+                emergencyStopActive: options.emergencyStopActive,
                 goal: options.goal,
                 preferredKnowledgeItemId: options.preferredKnowledgeItemId,
                 pendingAssistSuggestion: options.pendingAssistSuggestion,
@@ -53,7 +54,8 @@ struct OpenStaffStudentCLI {
                 sessionId: sessionId,
                 taskId: taskId,
                 dryRun: !options.realExecution,
-                simulateFailureAtStepIndex: options.simulateFailureAtStepIndex
+                simulateFailureAtStepIndex: options.simulateFailureAtStepIndex,
+                emergencyStopActive: options.emergencyStopActive
             )
 
             let result = try orchestrator.run(input: input, executionContext: executionContext)
@@ -92,6 +94,7 @@ struct OpenStaffStudentCLI {
           --from <teaching|assist|student>   Initial mode. Default: assist
           --preferred-knowledge-item-id <id> Prefer a specific KnowledgeItem for planning.
           --teacher-not-confirmed            Set teacherConfirmed=false for transition guard.
+          --emergency-stop-active            Set emergency stop active (blocks execution).
           --pending-assist-suggestion        Simulate pending assist suggestion for transition guard.
           --real-execution                   Disable dry-run tag in skill executor output.
           --simulate-failure-step <n>        Simulate failure on step n (1-based).
@@ -133,6 +136,7 @@ struct StudentCLIOptions {
     let initialMode: OpenStaffMode
     let preferredKnowledgeItemId: String?
     let teacherConfirmed: Bool
+    let emergencyStopActive: Bool
     let pendingAssistSuggestion: Bool
     let realExecution: Bool
     let simulateFailureAtStepIndex: Int?
@@ -163,6 +167,7 @@ struct StudentCLIOptions {
         var initialMode: OpenStaffMode = .assist
         var preferredKnowledgeItemId: String?
         var teacherConfirmed = true
+        var emergencyStopActive = false
         var pendingAssistSuggestion = false
         var realExecution = false
         var simulateFailureAtStepIndex: Int?
@@ -219,6 +224,8 @@ struct StudentCLIOptions {
                 preferredKnowledgeItemId = arguments[index]
             case "--teacher-not-confirmed":
                 teacherConfirmed = false
+            case "--emergency-stop-active":
+                emergencyStopActive = true
             case "--pending-assist-suggestion":
                 pendingAssistSuggestion = true
             case "--real-execution":
@@ -276,6 +283,7 @@ struct StudentCLIOptions {
                 initialMode: initialMode,
                 preferredKnowledgeItemId: preferredKnowledgeItemId,
                 teacherConfirmed: teacherConfirmed,
+                emergencyStopActive: emergencyStopActive,
                 pendingAssistSuggestion: pendingAssistSuggestion,
                 realExecution: realExecution,
                 simulateFailureAtStepIndex: simulateFailureAtStepIndex,
@@ -324,6 +332,7 @@ struct StudentCLIOptions {
             initialMode: initialMode,
             preferredKnowledgeItemId: preferredKnowledgeItemId,
             teacherConfirmed: teacherConfirmed,
+            emergencyStopActive: emergencyStopActive,
             pendingAssistSuggestion: pendingAssistSuggestion,
             realExecution: realExecution,
             simulateFailureAtStepIndex: simulateFailureAtStepIndex,

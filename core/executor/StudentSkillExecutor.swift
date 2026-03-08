@@ -6,7 +6,9 @@ public struct StudentExecutionContext: Sendable {
     public let taskId: String?
     public let dryRun: Bool
     public let simulateFailureAtStepIndex: Int?
+    public let emergencyStopActive: Bool
     public let blockedKeywords: [String]
+    public let blockedRegexPatterns: [String]
 
     public init(
         traceId: String,
@@ -14,14 +16,23 @@ public struct StudentExecutionContext: Sendable {
         taskId: String? = nil,
         dryRun: Bool = true,
         simulateFailureAtStepIndex: Int? = nil,
-        blockedKeywords: [String] = ["删除", "支付", "转账", "系统设置"]
+        emergencyStopActive: Bool = false,
+        blockedKeywords: [String] = ["删除", "移除", "支付", "转账", "系统设置", "格式化", "抹掉", "重置", "sudo", "rm -rf"],
+        blockedRegexPatterns: [String] = [
+            #"(?i)\brm\s+-rf\b"#,
+            #"(?i)\bsudo\s+"#,
+            #"(?i)\bshutdown\b|\breboot\b"#,
+            #"(?i)\bdd\s+if="#
+        ]
     ) {
         self.traceId = traceId
         self.sessionId = sessionId
         self.taskId = taskId
         self.dryRun = dryRun
         self.simulateFailureAtStepIndex = simulateFailureAtStepIndex
+        self.emergencyStopActive = emergencyStopActive
         self.blockedKeywords = blockedKeywords
+        self.blockedRegexPatterns = blockedRegexPatterns
     }
 }
 
@@ -53,6 +64,19 @@ public struct StudentSkillExecutor: StudentSkillExecuting {
         let startedAt = formatter.string(from: nowProvider())
         let instruction = step.instruction
 
+        if context.emergencyStopActive {
+            let finishedAt = formatter.string(from: nowProvider())
+            return StudentStepExecutionResult(
+                planStepId: step.planStepId,
+                skillId: step.skillId,
+                status: .blocked,
+                startedAt: startedAt,
+                finishedAt: finishedAt,
+                output: "Blocked by emergency stop.",
+                errorCode: .blockedAction
+            )
+        }
+
         if let blockedKeyword = context.blockedKeywords.first(where: { instruction.localizedCaseInsensitiveContains($0) }) {
             let finishedAt = formatter.string(from: nowProvider())
             return StudentStepExecutionResult(
@@ -62,6 +86,19 @@ public struct StudentSkillExecutor: StudentSkillExecuting {
                 startedAt: startedAt,
                 finishedAt: finishedAt,
                 output: "Blocked by safety rule. keyword=\(blockedKeyword)",
+                errorCode: .blockedAction
+            )
+        }
+
+        if let blockedPattern = firstMatchingPattern(in: instruction, patterns: context.blockedRegexPatterns) {
+            let finishedAt = formatter.string(from: nowProvider())
+            return StudentStepExecutionResult(
+                planStepId: step.planStepId,
+                skillId: step.skillId,
+                status: .blocked,
+                startedAt: startedAt,
+                finishedAt: finishedAt,
+                output: "Blocked by safety rule. pattern=\(blockedPattern)",
                 errorCode: .blockedAction
             )
         }
@@ -89,5 +126,14 @@ public struct StudentSkillExecutor: StudentSkillExecuting {
             finishedAt: finishedAt,
             output: "OpenClaw skill \(modeText) executed: \(step.skillId) :: \(instruction)"
         )
+    }
+
+    private func firstMatchingPattern(in text: String, patterns: [String]) -> String? {
+        for pattern in patterns {
+            if text.range(of: pattern, options: [.regularExpression]) != nil {
+                return pattern
+            }
+        }
+        return nil
     }
 }
