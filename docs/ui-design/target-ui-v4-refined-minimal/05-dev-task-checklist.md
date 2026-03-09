@@ -26,7 +26,7 @@
 - [x] 切换模式时隐藏部件自动显示。
 
 ## E. 回归
-- [ ] 无数据空态。
-- [ ] 长文本边界。
-- [ ] 多任务滚动性能。
-- [ ] 构建通过：`swift build --package-path apps/macos --product OpenStaffApp`
+- [x] 无数据空态。
+- [x] 长文本边界。
+- [x] 多任务滚动性能。
+- [x] 构建通过：`swift build --package-path apps/macos --product OpenStaffApp`

@@ -47,6 +47,19 @@ struct DesktopWidgetPrimaryTask: Identifiable {
     }
 }
 
+private final class DesktopWidgetRefreshTimerTarget: NSObject {
+    weak var owner: OpenStaffDesktopWidgetViewModel?
+
+    init(owner: OpenStaffDesktopWidgetViewModel) {
+        self.owner = owner
+    }
+
+    @objc
+    func handleTick(_ timer: Timer) {
+        owner?.refresh()
+    }
+}
+
 final class OpenStaffDesktopWidgetViewModel: NSObject, ObservableObject {
     @Published var displayMode: DesktopWidgetDisplayMode = .compact
     @Published private(set) var timelineTasks: [DesktopWidgetPrimaryTask] = []
@@ -55,12 +68,17 @@ final class OpenStaffDesktopWidgetViewModel: NSObject, ObservableObject {
     @Published private(set) var lastUpdatedAt: Date?
     @Published var isWidgetWindowVisible = true
 
+    private let autoRefreshEnabled: Bool
     private var refreshTimer: Timer?
+    private var refreshTimerTarget: DesktopWidgetRefreshTimerTarget?
 
-    override init() {
+    init(autoRefreshEnabled: Bool = true) {
+        self.autoRefreshEnabled = autoRefreshEnabled
         super.init()
         refresh()
-        startAutoRefresh()
+        if autoRefreshEnabled {
+            startAutoRefresh()
+        }
     }
 
     deinit {
@@ -88,16 +106,13 @@ final class OpenStaffDesktopWidgetViewModel: NSObject, ObservableObject {
         displayMode = .compact
     }
 
-    @objc
-    private func handleRefreshTick(_ timer: Timer) {
-        refresh()
-    }
-
     private func startAutoRefresh() {
+        let timerTarget = DesktopWidgetRefreshTimerTarget(owner: self)
+        refreshTimerTarget = timerTarget
         refreshTimer = Timer.scheduledTimer(
             timeInterval: 2.0,
-            target: self,
-            selector: #selector(handleRefreshTick(_:)),
+            target: timerTarget,
+            selector: #selector(DesktopWidgetRefreshTimerTarget.handleTick(_:)),
             userInfo: nil,
             repeats: true
         )
@@ -290,30 +305,54 @@ struct OpenStaffMenuBarContentView: View {
     }
 
     private func openConsoleWindow() {
-        openWindow(id: OpenStaffSceneID.console)
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        OpenStaffMenuBarActions.openConsoleWindow(
+            openConsoleWindow: {
+                openWindow(id: OpenStaffSceneID.console)
+            },
+            activateApp: {
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+        )
     }
 
     private func toggleDesktopWidgetWindow() {
-        if desktopWidgetViewModel.isWidgetWindowVisible {
-            closeDesktopWidgetWindowIfNeeded()
-            desktopWidgetViewModel.isWidgetWindowVisible = false
-        } else {
-            ensureWidgetWindowVisible()
-        }
+        OpenStaffMenuBarActions.toggleDesktopWidgetWindow(
+            viewModel: desktopWidgetViewModel,
+            closeDesktopWidgetWindowIfNeeded: {
+                closeDesktopWidgetWindowIfNeeded()
+            },
+            openDesktopWidgetWindow: {
+                openWindow(id: OpenStaffSceneID.desktopWidget)
+            },
+            activateApp: {
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+        )
     }
 
     private func ensureWidgetWindowVisible() {
-        if !desktopWidgetViewModel.isWidgetWindowVisible {
-            openWindow(id: OpenStaffSceneID.desktopWidget)
-            desktopWidgetViewModel.isWidgetWindowVisible = true
-        }
-        NSApplication.shared.activate(ignoringOtherApps: true)
+        OpenStaffMenuBarActions.ensureDesktopWidgetWindowVisible(
+            viewModel: desktopWidgetViewModel,
+            openDesktopWidgetWindow: {
+                openWindow(id: OpenStaffSceneID.desktopWidget)
+            },
+            activateApp: {
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+        )
     }
 
     private func setModeFromMenu(_ mode: DesktopWidgetDisplayMode) {
-        desktopWidgetViewModel.setDisplayMode(mode)
-        ensureWidgetWindowVisible()
+        OpenStaffMenuBarActions.setModeFromMenu(
+            mode,
+            viewModel: desktopWidgetViewModel,
+            openDesktopWidgetWindow: {
+                openWindow(id: OpenStaffSceneID.desktopWidget)
+            },
+            activateApp: {
+                NSApplication.shared.activate(ignoringOtherApps: true)
+            }
+        )
     }
 
     private func closeDesktopWidgetWindowIfNeeded() {
@@ -323,6 +362,61 @@ struct OpenStaffMenuBarContentView: View {
             return
         }
         widgetWindow.close()
+    }
+}
+
+enum OpenStaffMenuBarActions {
+    static func openConsoleWindow(
+        openConsoleWindow: () -> Void,
+        activateApp: () -> Void
+    ) {
+        openConsoleWindow()
+        activateApp()
+    }
+
+    static func toggleDesktopWidgetWindow(
+        viewModel: OpenStaffDesktopWidgetViewModel,
+        closeDesktopWidgetWindowIfNeeded: () -> Void,
+        openDesktopWidgetWindow: () -> Void,
+        activateApp: () -> Void
+    ) {
+        if viewModel.isWidgetWindowVisible {
+            closeDesktopWidgetWindowIfNeeded()
+            viewModel.isWidgetWindowVisible = false
+            return
+        }
+
+        ensureDesktopWidgetWindowVisible(
+            viewModel: viewModel,
+            openDesktopWidgetWindow: openDesktopWidgetWindow,
+            activateApp: activateApp
+        )
+    }
+
+    static func ensureDesktopWidgetWindowVisible(
+        viewModel: OpenStaffDesktopWidgetViewModel,
+        openDesktopWidgetWindow: () -> Void,
+        activateApp: () -> Void
+    ) {
+        if !viewModel.isWidgetWindowVisible {
+            openDesktopWidgetWindow()
+            viewModel.isWidgetWindowVisible = true
+        }
+        activateApp()
+    }
+
+    static func setModeFromMenu(
+        _ mode: DesktopWidgetDisplayMode,
+        viewModel: OpenStaffDesktopWidgetViewModel,
+        openDesktopWidgetWindow: () -> Void,
+        activateApp: () -> Void
+    ) {
+        viewModel.setDisplayMode(mode)
+        ensureDesktopWidgetWindowVisible(
+            viewModel: viewModel,
+            openDesktopWidgetWindow: openDesktopWidgetWindow,
+            activateApp: activateApp
+        )
     }
 }
 
@@ -685,7 +779,7 @@ private enum DesktopWidgetSpacing {
     static let trackWidth: CGFloat = 2
 }
 
-private enum DesktopWidgetTruncationScenario {
+enum DesktopWidgetTruncationScenario {
     case compactCurrentTask
     case compactNextTask
     case timelinePrimaryTaskTitle
@@ -694,7 +788,7 @@ private enum DesktopWidgetTruncationScenario {
     case timelineSecondaryTaskDetail
 }
 
-private enum DesktopWidgetTruncationRule {
+enum DesktopWidgetTruncationRule {
     private static let ellipsis = "..."
 
     static func apply(_ text: String, scenario: DesktopWidgetTruncationScenario) -> String {

@@ -1753,6 +1753,12 @@ private struct TeacherFeedbackReadRecord: Decodable {
 
 enum OpenStaffWorkspacePaths {
     static var repositoryRoot: URL {
+        let environment = ProcessInfo.processInfo.environment
+        if let override = environment["OPENSTAFF_WORKSPACE_ROOT"],
+           !override.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+
         let fileManager = FileManager.default
         var candidate = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
 

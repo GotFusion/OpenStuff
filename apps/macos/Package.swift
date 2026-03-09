@@ -48,6 +48,11 @@ let package = Package(
         .executableTarget(
             name: "OpenStaffDemoCLI",
             path: "Sources/OpenStaffDemoCLI"
+        ),
+        .testTarget(
+            name: "OpenStaffAppTests",
+            dependencies: ["OpenStaffApp"],
+            path: "Tests/OpenStaffAppTests"
         )
     ]
 )

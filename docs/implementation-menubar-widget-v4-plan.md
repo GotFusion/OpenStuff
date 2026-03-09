@@ -143,6 +143,19 @@
 - `swift build --package-path apps/macos --product OpenStaffApp`
 - 验收：构建通过；交互全链路无崩溃。
 
+### Phase E 完成记录（2026-03-09）
+- 新增 `apps/macos` 回归测试目标 `OpenStaffAppTests`，并落地 `DesktopWidgetPhaseERegressionTests`（7 个用例）覆盖：
+  - 菜单栏打开控制台动作链路。
+  - 前台部件显示/隐藏切换链路。
+  - 菜单模式切换在隐藏态自动显示部件。
+  - 紧急停止状态文案切换。
+  - 无数据空态。
+  - 长文本截断边界。
+  - 多任务（30 组）数据下时间轴上限与稳定性（保留 24 组）。
+- 运行 `swift test --package-path apps/macos --filter DesktopWidgetPhaseERegressionTests`：7/7 通过。
+- 运行 `python3 scripts/tests/run_all.py --suite all`：unit/integration/e2e 全部通过（18/18）。
+- 运行 `swift build --package-path apps/macos --product OpenStaffApp`：构建通过。
+
 ## 5. 文件级改动计划
 
 必改：
