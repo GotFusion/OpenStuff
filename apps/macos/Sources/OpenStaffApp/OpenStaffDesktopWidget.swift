@@ -41,6 +41,10 @@ struct DesktopWidgetPrimaryTask: Identifiable {
     let sessionId: String
     let timestamp: Date
     let secondaryTasks: [DesktopWidgetSecondaryTask]
+
+    var summaryText: String {
+        secondaryTasks.first?.detail ?? "暂无摘要"
+    }
 }
 
 final class OpenStaffDesktopWidgetViewModel: NSObject, ObservableObject {
@@ -329,6 +333,7 @@ struct OpenStaffMenuBarContentView: View {
 
 struct OpenStaffDesktopWidgetView: View {
     @ObservedObject var viewModel: OpenStaffDesktopWidgetViewModel
+    @ObservedObject var dashboardViewModel: OpenStaffDashboardViewModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesktopWidgetSpacing.widgetStack) {
@@ -347,12 +352,7 @@ struct OpenStaffDesktopWidgetView: View {
         .background {
             if viewModel.displayMode == .detailed {
                 RoundedRectangle(cornerRadius: DesktopWidgetSpacing.widgetWindowCornerRadius)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DesktopWidgetSpacing.widgetWindowCornerRadius)
-                            .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                    )
-                    .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 10)
+                    .fill(DesktopWidgetColorPalette.detailedWindowFill)
             }
         }
         .background(
@@ -449,17 +449,26 @@ struct OpenStaffDesktopWidgetView: View {
                 }
             }
 
-            Divider()
+            if dashboardViewModel.emergencyStopActive {
+                HStack(alignment: .center, spacing: DesktopWidgetSpacing.emergencyLineGap) {
+                    Rectangle()
+                        .fill(DesktopWidgetColorPalette.emergencyLine)
+                        .frame(height: DesktopWidgetSpacing.emergencyLineHeight)
+                    Text("紧急停止已激活")
+                        .font(DesktopWidgetTypography.emergencyLabel)
+                        .foregroundStyle(DesktopWidgetColorPalette.emergencyLine)
+                }
+            }
 
             if viewModel.timelineTasks.isEmpty {
                 Text("暂无任务记录，可先运行教学/辅助/学生流程。")
                     .font(DesktopWidgetTypography.timelineSecondaryDetail)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesktopWidgetColorPalette.timelineSecondaryText)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.top, DesktopWidgetSpacing.timelineEmptyTopPadding)
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: DesktopWidgetSpacing.primaryGroupSpacing) {
+                    LazyVStack(alignment: .leading, spacing: DesktopWidgetSpacing.primaryGroupAdditionalSpacing) {
                         ForEach(viewModel.timelineTasks) { task in
                             DesktopWidgetTimelineTaskCard(task: task)
                         }
@@ -470,14 +479,6 @@ struct OpenStaffDesktopWidgetView: View {
         }
         .padding(DesktopWidgetSpacing.timelineSectionPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: DesktopWidgetSpacing.timelineSectionCornerRadius)
-                .fill(DesktopWidgetColorPalette.timelineSectionFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DesktopWidgetSpacing.timelineSectionCornerRadius)
-                        .stroke(DesktopWidgetColorPalette.timelineSectionStroke, lineWidth: 1)
-                )
-        )
     }
 }
 
@@ -485,8 +486,16 @@ private struct DesktopWidgetTimelineTaskCard: View {
     let task: DesktopWidgetPrimaryTask
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesktopWidgetSpacing.primaryNodeVerticalGap) {
-            HStack(alignment: .top, spacing: DesktopWidgetSpacing.primaryNodeRowSpacing) {
+        VStack(alignment: .leading, spacing: DesktopWidgetSpacing.primaryToSecondaryGap) {
+            primaryNodeRow
+            secondaryTaskRows
+        }
+        .frame(maxWidth: .infinity, minHeight: DesktopWidgetSpacing.primaryNodeMinHeight, alignment: .topLeading)
+    }
+
+    private var primaryNodeRow: some View {
+        HStack(alignment: .top, spacing: 0) {
+            VStack(spacing: 0) {
                 Circle()
                     .fill(DesktopWidgetColorPalette.primaryNodeFill(for: task.mode))
                     .overlay(
@@ -499,67 +508,98 @@ private struct DesktopWidgetTimelineTaskCard: View {
                     )
                     .padding(.top, DesktopWidgetSpacing.primaryNodeDotTopOffset)
 
-                VStack(alignment: .leading, spacing: DesktopWidgetSpacing.primaryNodeTextSpacing) {
-                    Text(
-                        DesktopWidgetTruncationRule.timelinePrimaryTaskTitle(
-                            order: task.order,
-                            modeName: task.mode.widgetDisplayName,
-                            taskId: task.taskName
-                        )
+                Rectangle()
+                    .fill(DesktopWidgetColorPalette.timelineRail)
+                    .frame(width: DesktopWidgetSpacing.trackWidth)
+                    .frame(maxHeight: .infinity)
+                    .opacity(task.secondaryTasks.isEmpty ? 0 : 1)
+            }
+            .frame(width: DesktopWidgetSpacing.trackLeadingSafetyWidth, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(
+                    DesktopWidgetTruncationRule.timelinePrimaryTaskTitle(
+                        order: task.order,
+                        modeName: task.mode.widgetDisplayName,
+                        taskId: task.taskName
                     )
-                        .font(DesktopWidgetTypography.timelinePrimaryTaskTitle)
-                        .lineLimit(1)
-                    Text("\(task.mode.widgetDisplayName) · \(task.sessionId) · \(OpenStaffDateFormatter.displayString(from: task.timestamp))")
-                        .font(DesktopWidgetTypography.timelineMetadata)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
+                )
+                    .font(DesktopWidgetTypography.timelinePrimaryTaskTitle)
+                    .foregroundStyle(DesktopWidgetColorPalette.timelinePrimaryText)
+                    .lineLimit(1)
 
-            VStack(alignment: .leading, spacing: DesktopWidgetSpacing.secondaryNodeVerticalGap) {
-                ForEach(task.secondaryTasks) { secondary in
-                    HStack(alignment: .top, spacing: DesktopWidgetSpacing.secondaryNodeRowSpacing) {
-                        Rectangle()
-                            .fill(DesktopWidgetColorPalette.secondaryTrack)
-                            .frame(width: DesktopWidgetSpacing.trackWidth, height: DesktopWidgetSpacing.trackHeight)
-                            .padding(.leading, DesktopWidgetSpacing.trackLeadingInset)
+                Text("\(task.mode.widgetDisplayName) · \(task.sessionId) · \(OpenStaffDateFormatter.displayString(from: task.timestamp))")
+                    .font(DesktopWidgetTypography.timelineMetadata)
+                    .foregroundStyle(DesktopWidgetColorPalette.timelineMetadataText)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .padding(.top, DesktopWidgetSpacing.primaryTitleToMetadataGap)
 
-                        VStack(alignment: .leading, spacing: DesktopWidgetSpacing.secondaryNodeTextSpacing) {
-                            Text(
-                                DesktopWidgetTruncationRule.timelineSecondaryTaskTitle(
-                                    order: secondary.order,
-                                    status: secondary.title
-                                )
-                            )
-                                .font(DesktopWidgetTypography.timelineSecondaryTaskTitle)
-                                .lineLimit(1)
-                            Text(OpenStaffDateFormatter.displayString(from: secondary.timestamp))
-                                .font(DesktopWidgetTypography.timelineMetadata)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                                .lineLimit(1)
-                            Text(
-                                DesktopWidgetTruncationRule.apply(
-                                    secondary.detail,
-                                    scenario: .timelineSecondaryTaskDetail
-                                )
-                            )
-                                .font(DesktopWidgetTypography.timelineSecondaryDetail)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                    .padding(.leading, DesktopWidgetSpacing.trackTextOffset)
-                }
+                Text(
+                    DesktopWidgetTruncationRule.apply(
+                        task.summaryText,
+                        scenario: .timelinePrimaryTaskSummary
+                    )
+                )
+                    .font(DesktopWidgetTypography.timelineSecondaryDetail)
+                    .foregroundStyle(DesktopWidgetColorPalette.timelineSecondaryText)
+                    .lineLimit(1)
+                    .padding(.top, DesktopWidgetSpacing.primaryMetadataToSummaryGap)
             }
-            .padding(.top, DesktopWidgetSpacing.primaryToSecondaryGap)
+            .padding(.leading, DesktopWidgetSpacing.trackTextStartOffset)
         }
-        .padding(DesktopWidgetSpacing.taskCardPadding)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: DesktopWidgetSpacing.taskCardCornerRadius)
-                .fill(DesktopWidgetColorPalette.timelineCardFill)
-        )
+    }
+
+    private var secondaryTaskRows: some View {
+        VStack(alignment: .leading, spacing: DesktopWidgetSpacing.secondaryTaskItemSpacing) {
+            ForEach(Array(task.secondaryTasks.enumerated()), id: \.element.id) { index, secondary in
+                HStack(alignment: .top, spacing: 0) {
+                    VStack(spacing: 0) {
+                        Circle()
+                            .fill(DesktopWidgetColorPalette.secondaryNodeFill(for: task.mode))
+                            .overlay(
+                                Circle()
+                                    .stroke(DesktopWidgetColorPalette.secondaryNodeStroke(for: task.mode), lineWidth: 1)
+                            )
+                            .frame(
+                                width: DesktopWidgetSpacing.secondaryNodeDotSize,
+                                height: DesktopWidgetSpacing.secondaryNodeDotSize
+                            )
+
+                        Rectangle()
+                            .fill(DesktopWidgetColorPalette.timelineRail)
+                            .frame(width: DesktopWidgetSpacing.trackWidth, height: DesktopWidgetSpacing.secondaryConnectorHeight)
+                            .opacity(index == task.secondaryTasks.count - 1 ? 0 : 1)
+                    }
+                    .frame(width: DesktopWidgetSpacing.trackLeadingSafetyWidth, alignment: .center)
+
+                    VStack(alignment: .leading, spacing: DesktopWidgetSpacing.secondaryNodeTextSpacing) {
+                        Text(
+                            DesktopWidgetTruncationRule.timelineSecondaryTaskTitle(
+                                order: secondary.order,
+                                status: secondary.title
+                            )
+                        )
+                            .font(DesktopWidgetTypography.timelineSecondaryTaskTitle)
+                            .foregroundStyle(DesktopWidgetColorPalette.timelinePrimaryText)
+                            .lineLimit(1)
+
+                        Text(
+                            "\(OpenStaffDateFormatter.displayString(from: secondary.timestamp)) · " +
+                            DesktopWidgetTruncationRule.apply(
+                                secondary.detail,
+                                scenario: .timelineSecondaryTaskDetail
+                            )
+                        )
+                            .font(DesktopWidgetTypography.timelineSecondaryDetail)
+                            .foregroundStyle(DesktopWidgetColorPalette.timelineSecondaryText)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                    }
+                    .padding(.leading, DesktopWidgetSpacing.trackTextStartOffset)
+                }
+            }
+        }
     }
 }
 
@@ -568,6 +608,7 @@ private enum DesktopWidgetTypography {
     static let compactCurrentTask = Font.system(size: 14, weight: .semibold)
     static let compactNextTask = Font.system(size: 13, weight: .medium)
     static let compactHint = Font.system(size: 12, weight: .medium)
+    static let emergencyLabel = Font.system(size: 11, weight: .semibold)
     static let timelineSectionTitle = Font.system(size: 16, weight: .semibold)
     static let timelinePrimaryTaskTitle = Font.system(size: 16, weight: .semibold)
     static let timelineMetadata = Font.system(size: 12, weight: .medium, design: .monospaced)
@@ -582,10 +623,12 @@ private enum DesktopWidgetColorPalette {
     static let compactBoxStroke = Color.white.opacity(0.38)
     static let compactBoxShadow = Color.black.opacity(0.2)
 
-    static let timelineSectionFill = Color.white.opacity(0.65)
-    static let timelineSectionStroke = Color.white.opacity(0.7)
-    static let timelineCardFill = Color.white.opacity(0.8)
-    static let secondaryTrack = Color.secondary.opacity(0.35)
+    static let detailedWindowFill = Color.black.opacity(0.04)
+    static let timelinePrimaryText = Color.white.opacity(0.94)
+    static let timelineMetadataText = Color.white.opacity(0.80)
+    static let timelineSecondaryText = Color.white.opacity(0.74)
+    static let timelineRail = Color(red: 0.84, green: 0.89, blue: 0.93).opacity(0.82)
+    static let emergencyLine = Color(red: 0.73, green: 0.11, blue: 0.11)
 
     static func primaryNodeFill(for mode: OpenStaffMode) -> Color {
         mode.widgetAccentColor.opacity(0.45)
@@ -593,6 +636,14 @@ private enum DesktopWidgetColorPalette {
 
     static func primaryNodeStroke(for mode: OpenStaffMode) -> Color {
         mode.widgetAccentColor.opacity(0.60)
+    }
+
+    static func secondaryNodeFill(for mode: OpenStaffMode) -> Color {
+        mode.widgetAccentColor.opacity(0.32)
+    }
+
+    static func secondaryNodeStroke(for mode: OpenStaffMode) -> Color {
+        mode.widgetAccentColor.opacity(0.46)
     }
 }
 
@@ -616,35 +667,34 @@ private enum DesktopWidgetSpacing {
 
     static let timelineSection: CGFloat = 10
     static let timelineSectionPadding: CGFloat = 10
-    static let timelineSectionCornerRadius: CGFloat = 18
     static let timelineEmptyTopPadding: CGFloat = 8
     static let timelineContentVerticalPadding: CGFloat = 4
+    static let emergencyLineHeight: CGFloat = 2
+    static let emergencyLineGap: CGFloat = 8
 
-    static let primaryGroupSpacing: CGFloat = 12
-    static let primaryNodeVerticalGap: CGFloat = 8
-    static let primaryNodeRowSpacing: CGFloat = 10
+    static let primaryGroupAdditionalSpacing: CGFloat = 38
+    static let primaryNodeMinHeight: CGFloat = 184
     static let primaryNodeDotSize: CGFloat = 10
     static let primaryNodeDotTopOffset: CGFloat = 5
-    static let primaryNodeTextSpacing: CGFloat = 2
-    static let primaryToSecondaryGap: CGFloat = 10
+    static let primaryTitleToMetadataGap: CGFloat = 22
+    static let primaryMetadataToSummaryGap: CGFloat = 20
+    static let primaryToSecondaryGap: CGFloat = 34
+    static let secondaryTaskItemSpacing: CGFloat = 46
 
-    static let secondaryNodeVerticalGap: CGFloat = 8
-    static let secondaryNodeRowSpacing: CGFloat = 8
+    static let secondaryNodeDotSize: CGFloat = 5
     static let secondaryNodeTextSpacing: CGFloat = 2
+    static let secondaryConnectorHeight: CGFloat = 28
 
+    static let trackLeadingSafetyWidth: CGFloat = 64
+    static let trackTextStartOffset: CGFloat = 28
     static let trackWidth: CGFloat = 2
-    static let trackHeight: CGFloat = 36
-    static let trackLeadingInset: CGFloat = 4
-    static let trackTextOffset: CGFloat = 24
-
-    static let taskCardPadding: CGFloat = 10
-    static let taskCardCornerRadius: CGFloat = 12
 }
 
 private enum DesktopWidgetTruncationScenario {
     case compactCurrentTask
     case compactNextTask
     case timelinePrimaryTaskTitle
+    case timelinePrimaryTaskSummary
     case timelineSecondaryTaskTitle
     case timelineSecondaryTaskDetail
 }
@@ -673,6 +723,8 @@ private enum DesktopWidgetTruncationRule {
         case .compactNextTask:
             return 26
         case .timelinePrimaryTaskTitle:
+            return 44
+        case .timelinePrimaryTaskSummary:
             return 44
         case .timelineSecondaryTaskTitle:
             return 42

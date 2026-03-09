@@ -19,7 +19,10 @@ struct OpenStaffApp: App {
         .defaultSize(width: 1180, height: 1120)
 
         Window("OpenStaff 前台部件", id: OpenStaffSceneID.desktopWidget) {
-            OpenStaffDesktopWidgetView(viewModel: desktopWidgetViewModel)
+            OpenStaffDesktopWidgetView(
+                viewModel: desktopWidgetViewModel,
+                dashboardViewModel: viewModel
+            )
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
