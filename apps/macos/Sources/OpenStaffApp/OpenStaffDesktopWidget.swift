@@ -426,6 +426,7 @@ struct OpenStaffDesktopWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesktopWidgetSpacing.widgetStack) {
+            widgetHeader
             compactBox
 
             if viewModel.displayMode == .detailed {
@@ -438,12 +439,10 @@ struct OpenStaffDesktopWidgetView: View {
             height: viewModel.displayMode == .compact ? DesktopWidgetSpacing.compactWindowHeight : DesktopWidgetSpacing.detailedWindowHeight,
             alignment: .topLeading
         )
-        .background {
-            if viewModel.displayMode == .detailed {
-                RoundedRectangle(cornerRadius: DesktopWidgetSpacing.widgetWindowCornerRadius)
-                    .fill(DesktopWidgetColorPalette.detailedWindowFill)
-            }
-        }
+        .background(
+            RoundedRectangle(cornerRadius: DesktopWidgetSpacing.widgetWindowCornerRadius)
+                .fill(DesktopWidgetColorPalette.detailedWindowFill)
+        )
         .background(
             DesktopWidgetWindowConfigurator(windowIdentifier: OpenStaffSceneID.desktopWidget)
         )
@@ -455,6 +454,55 @@ struct OpenStaffDesktopWidgetView: View {
             viewModel.isWidgetWindowVisible = false
         }
         .animation(.easeInOut(duration: 0.25), value: viewModel.displayMode)
+    }
+
+    private var widgetHeader: some View {
+        HStack(spacing: DesktopWidgetSpacing.headerItemGap) {
+            DesktopWidgetDragRegion()
+                .frame(maxWidth: .infinity)
+                .frame(height: DesktopWidgetSpacing.headerHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: DesktopWidgetSpacing.headerCornerRadius, style: .continuous)
+                        .fill(DesktopWidgetColorPalette.headerFill)
+                )
+                .overlay(alignment: .leading) {
+                    HStack(spacing: DesktopWidgetSpacing.headerDragHintGap) {
+                        Capsule()
+                            .fill(DesktopWidgetColorPalette.headerDragIndicator)
+                            .frame(width: DesktopWidgetSpacing.headerDragIndicatorWidth, height: DesktopWidgetSpacing.headerDragIndicatorHeight)
+                        Text("拖动小部件")
+                            .font(DesktopWidgetTypography.headerHint)
+                            .foregroundStyle(DesktopWidgetColorPalette.headerHintText)
+                    }
+                    .padding(.leading, DesktopWidgetSpacing.headerHorizontalPadding)
+                    .allowsHitTesting(false)
+                }
+
+            Button {
+                closeWidgetWindow()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(DesktopWidgetTypography.headerCloseIcon)
+                    .foregroundStyle(DesktopWidgetColorPalette.headerHintText)
+                    .frame(width: DesktopWidgetSpacing.headerCloseButtonSize, height: DesktopWidgetSpacing.headerCloseButtonSize)
+                    .background(
+                        Circle()
+                            .fill(DesktopWidgetColorPalette.headerButtonFill)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func closeWidgetWindow() {
+        guard let widgetWindow = NSApplication.shared.windows.first(where: {
+            $0.identifier?.rawValue == OpenStaffSceneID.desktopWidget
+        }) else {
+            viewModel.isWidgetWindowVisible = false
+            return
+        }
+        widgetWindow.close()
+        viewModel.isWidgetWindowVisible = false
     }
 
     private var compactHintText: String {
@@ -506,10 +554,6 @@ struct OpenStaffDesktopWidgetView: View {
             .background(
                 RoundedRectangle(cornerRadius: DesktopWidgetSpacing.compactBoxCornerRadius, style: .continuous)
                     .fill(DesktopWidgetColorPalette.compactBoxFill)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DesktopWidgetSpacing.compactBoxCornerRadius, style: .continuous)
-                            .stroke(DesktopWidgetColorPalette.compactBoxStroke, lineWidth: 1.5)
-                    )
                     .shadow(
                         color: DesktopWidgetColorPalette.compactBoxShadow,
                         radius: DesktopWidgetSpacing.compactBoxShadowRadius,
@@ -533,7 +577,7 @@ struct OpenStaffDesktopWidgetView: View {
                 if let lastUpdatedAt = viewModel.lastUpdatedAt {
                     Text("更新：\(OpenStaffDateFormatter.displayString(from: lastUpdatedAt))")
                         .font(DesktopWidgetTypography.timelineMetadata)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesktopWidgetColorPalette.timelineMetadataText)
                         .monospacedDigit()
                 }
             }
@@ -568,6 +612,10 @@ struct OpenStaffDesktopWidgetView: View {
         }
         .padding(DesktopWidgetSpacing.timelineSectionPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: DesktopWidgetSpacing.timelinePanelCornerRadius, style: .continuous)
+                .fill(DesktopWidgetColorPalette.timelinePanelFill)
+        )
     }
 }
 
@@ -693,6 +741,8 @@ private struct DesktopWidgetTimelineTaskCard: View {
 }
 
 private enum DesktopWidgetTypography {
+    static let headerHint = Font.system(size: 11, weight: .medium)
+    static let headerCloseIcon = Font.system(size: 11, weight: .semibold)
     static let compactLabel = Font.system(size: 12, weight: .medium)
     static let compactCurrentTask = Font.system(size: 14, weight: .semibold)
     static let compactNextTask = Font.system(size: 13, weight: .medium)
@@ -706,17 +756,22 @@ private enum DesktopWidgetTypography {
 }
 
 private enum DesktopWidgetColorPalette {
-    static let compactPrimaryText = Color.white.opacity(0.92)
-    static let compactSecondaryText = Color.white.opacity(0.72)
-    static let compactBoxFill = Color.white.opacity(0.18)
-    static let compactBoxStroke = Color.white.opacity(0.38)
-    static let compactBoxShadow = Color.black.opacity(0.2)
+    static let headerFill = Color.black.opacity(0.52)
+    static let headerButtonFill = Color.black.opacity(0.58)
+    static let headerDragIndicator = Color.white.opacity(0.60)
+    static let headerHintText = Color.white.opacity(0.92)
 
-    static let detailedWindowFill = Color.black.opacity(0.04)
-    static let timelinePrimaryText = Color.white.opacity(0.94)
-    static let timelineMetadataText = Color.white.opacity(0.80)
-    static let timelineSecondaryText = Color.white.opacity(0.74)
-    static let timelineRail = Color(red: 0.84, green: 0.89, blue: 0.93).opacity(0.82)
+    static let compactPrimaryText = Color.white.opacity(0.98)
+    static let compactSecondaryText = Color.white.opacity(0.86)
+    static let compactBoxFill = Color.black.opacity(0.58)
+    static let compactBoxShadow = Color.black.opacity(0.34)
+
+    static let detailedWindowFill = Color.black.opacity(0.42)
+    static let timelinePanelFill = Color.black.opacity(0.34)
+    static let timelinePrimaryText = Color.white.opacity(0.98)
+    static let timelineMetadataText = Color.white.opacity(0.86)
+    static let timelineSecondaryText = Color.white.opacity(0.82)
+    static let timelineRail = Color.white.opacity(0.40)
     static let emergencyLine = Color(red: 0.73, green: 0.11, blue: 0.11)
 
     static func primaryNodeFill(for mode: OpenStaffMode) -> Color {
@@ -741,9 +796,18 @@ private enum DesktopWidgetSpacing {
     static let widgetOuterPadding: CGFloat = 12
     static let widgetWindowCornerRadius: CGFloat = 24
     static let compactWindowWidth: CGFloat = 392
-    static let compactWindowHeight: CGFloat = 178
+    static let compactWindowHeight: CGFloat = 214
     static let detailedWindowWidth: CGFloat = 560
-    static let detailedWindowHeight: CGFloat = 580
+    static let detailedWindowHeight: CGFloat = 624
+
+    static let headerHeight: CGFloat = 26
+    static let headerCornerRadius: CGFloat = 10
+    static let headerItemGap: CGFloat = 8
+    static let headerHorizontalPadding: CGFloat = 10
+    static let headerDragHintGap: CGFloat = 8
+    static let headerDragIndicatorWidth: CGFloat = 38
+    static let headerDragIndicatorHeight: CGFloat = 4
+    static let headerCloseButtonSize: CGFloat = 24
 
     static let compactSectionGap: CGFloat = 10
     static let compactLabelTextGap: CGFloat = 4
@@ -756,6 +820,7 @@ private enum DesktopWidgetSpacing {
 
     static let timelineSection: CGFloat = 10
     static let timelineSectionPadding: CGFloat = 10
+    static let timelinePanelCornerRadius: CGFloat = 16
     static let timelineEmptyTopPadding: CGFloat = 8
     static let timelineContentVerticalPadding: CGFloat = 4
     static let emergencyLineHeight: CGFloat = 2
@@ -855,6 +920,20 @@ enum DesktopWidgetTruncationRule {
     }
 }
 
+private struct DesktopWidgetDragRegion: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        DragMoveView(frame: .zero)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+private final class DragMoveView: NSView {
+    override var mouseDownCanMoveWindow: Bool {
+        true
+    }
+}
+
 private struct DesktopWidgetWindowConfigurator: NSViewRepresentable {
     let windowIdentifier: String
 
@@ -880,6 +959,14 @@ private struct DesktopWidgetWindowConfigurator: NSViewRepresentable {
         if window.identifier?.rawValue != windowIdentifier {
             window.identifier = NSUserInterfaceItemIdentifier(windowIdentifier)
         }
+
+        if !window.styleMask.contains(.borderless) {
+            window.styleMask.insert(.borderless)
+        }
+        window.styleMask.remove(.titled)
+        window.styleMask.remove(.resizable)
+        window.styleMask.remove(.closable)
+        window.styleMask.remove(.miniaturizable)
 
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
