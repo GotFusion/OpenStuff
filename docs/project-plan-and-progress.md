@@ -128,6 +128,7 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成阶段 6.3 发布前检查：补齐配置模板（`config/release.example.yaml`、`config/demo.example.yaml`）与配置文档；新增 `scripts/release/build_demo_bundle.py`（演示数据包）与 `scripts/release/run_regression.py`（发布回归与 JSON 报告）；新增 `make release-demo` / `make release-regression` / `make release-preflight` 一键入口。
 - 新增用户使用说明书 `docs/user-manual.md`，并新增 `OpenStaffDemoCLI` + `make demo-build` / `make demo-run`，支持一键体验教学->辅助->学生闭环。
 - 完成菜单栏+前台部件 v4 的 Phase A（基础样式收敛）：字体/间距/节点透明色/截断规则统一 token 化，超长文案统一按场景截断。
+- 完成菜单栏+前台部件 v4 的 Phase B（精简模式改造）：球体样式替换为透明方框，精简信息收敛到当前任务/下一步/轻提示，整块区域可点击切换详细模式。
 
 ### 未开始
 - OpenClaw skills 执行联调。

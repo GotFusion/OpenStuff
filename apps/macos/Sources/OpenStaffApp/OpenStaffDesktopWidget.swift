@@ -332,7 +332,7 @@ struct OpenStaffDesktopWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesktopWidgetSpacing.widgetStack) {
-            compactOrb
+            compactBox
 
             if viewModel.displayMode == .detailed {
                 detailTimeline
@@ -340,19 +340,21 @@ struct OpenStaffDesktopWidgetView: View {
         }
         .padding(DesktopWidgetSpacing.widgetOuterPadding)
         .frame(
-            width: viewModel.displayMode == .compact ? 286 : 560,
-            height: viewModel.displayMode == .compact ? 172 : 580,
+            width: viewModel.displayMode == .compact ? DesktopWidgetSpacing.compactWindowWidth : DesktopWidgetSpacing.detailedWindowWidth,
+            height: viewModel.displayMode == .compact ? DesktopWidgetSpacing.compactWindowHeight : DesktopWidgetSpacing.detailedWindowHeight,
             alignment: .topLeading
         )
-        .background(
-            RoundedRectangle(cornerRadius: DesktopWidgetSpacing.widgetWindowCornerRadius)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DesktopWidgetSpacing.widgetWindowCornerRadius)
-                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 10)
-        )
+        .background {
+            if viewModel.displayMode == .detailed {
+                RoundedRectangle(cornerRadius: DesktopWidgetSpacing.widgetWindowCornerRadius)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DesktopWidgetSpacing.widgetWindowCornerRadius)
+                            .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.2), radius: 12, x: 0, y: 10)
+            }
+        }
         .background(
             DesktopWidgetWindowConfigurator(windowIdentifier: OpenStaffSceneID.desktopWidget)
         )
@@ -366,7 +368,11 @@ struct OpenStaffDesktopWidgetView: View {
         .animation(.easeInOut(duration: 0.25), value: viewModel.displayMode)
     }
 
-    private var compactOrb: some View {
+    private var compactHintText: String {
+        viewModel.displayMode == .compact ? "点击展开" : "点击收起"
+    }
+
+    private var compactBox: some View {
         Button {
             if viewModel.displayMode == .compact {
                 viewModel.showDetailedMode()
@@ -374,65 +380,55 @@ struct OpenStaffDesktopWidgetView: View {
                 viewModel.showCompactMode()
             }
         } label: {
-            HStack(alignment: .center, spacing: DesktopWidgetSpacing.compactRow) {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                DesktopWidgetColorPalette.compactIndicatorGradientStart,
-                                DesktopWidgetColorPalette.compactIndicatorGradientEnd
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.75), lineWidth: 1.2)
-                    )
-                    .frame(
-                        width: DesktopWidgetSpacing.compactIndicatorSize,
-                        height: DesktopWidgetSpacing.compactIndicatorSize
-                    )
-
-                VStack(alignment: .leading, spacing: DesktopWidgetSpacing.compactText) {
+            VStack(alignment: .leading, spacing: DesktopWidgetSpacing.compactSectionGap) {
+                VStack(alignment: .leading, spacing: DesktopWidgetSpacing.compactLabelTextGap) {
                     Text("当前任务")
-                        .font(DesktopWidgetTypography.compactCaption)
-                        .foregroundStyle(.secondary)
+                        .font(DesktopWidgetTypography.compactLabel)
+                        .foregroundStyle(DesktopWidgetColorPalette.compactSecondaryText)
                     Text(viewModel.currentTaskBrief)
                         .font(DesktopWidgetTypography.compactCurrentTask)
+                        .foregroundStyle(DesktopWidgetColorPalette.compactPrimaryText)
                         .lineLimit(1)
-                    Text("下一步：\(viewModel.nextTaskBrief)")
-                        .font(DesktopWidgetTypography.compactNextTask)
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
                 }
 
-                Spacer(minLength: 0)
+                VStack(alignment: .leading, spacing: DesktopWidgetSpacing.compactLabelTextGap) {
+                    Text("下一步")
+                        .font(DesktopWidgetTypography.compactLabel)
+                        .foregroundStyle(DesktopWidgetColorPalette.compactSecondaryText)
+                    Text(viewModel.nextTaskBrief)
+                        .font(DesktopWidgetTypography.compactNextTask)
+                        .foregroundStyle(DesktopWidgetColorPalette.compactSecondaryText)
+                        .lineLimit(1)
+                }
 
-                Image(systemName: viewModel.displayMode == .compact ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
-                    .font(DesktopWidgetTypography.compactChevron)
-                    .foregroundStyle(DesktopWidgetColorPalette.compactIndicatorGradientStart)
+                HStack(spacing: DesktopWidgetSpacing.compactHintGap) {
+                    Spacer(minLength: 0)
+                    Text(compactHintText)
+                        .font(DesktopWidgetTypography.compactHint)
+                        .foregroundStyle(DesktopWidgetColorPalette.compactSecondaryText)
+                    Image(systemName: viewModel.displayMode == .compact ? "arrow.right" : "arrow.down")
+                        .font(DesktopWidgetTypography.compactHint)
+                        .foregroundStyle(DesktopWidgetColorPalette.compactSecondaryText)
+                }
             }
-            .padding(.horizontal, DesktopWidgetSpacing.compactHorizontalPadding)
-            .padding(.vertical, DesktopWidgetSpacing.compactVerticalPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DesktopWidgetSpacing.compactBoxHorizontalPadding)
+            .padding(.vertical, DesktopWidgetSpacing.compactBoxVerticalPadding)
             .background(
-                RoundedRectangle(cornerRadius: DesktopWidgetSpacing.compactCornerRadius, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                DesktopWidgetColorPalette.compactBackgroundGradientStart,
-                                DesktopWidgetColorPalette.compactBackgroundGradientEnd
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                RoundedRectangle(cornerRadius: DesktopWidgetSpacing.compactBoxCornerRadius, style: .continuous)
+                    .fill(DesktopWidgetColorPalette.compactBoxFill)
                     .overlay(
-                        RoundedRectangle(cornerRadius: DesktopWidgetSpacing.compactCornerRadius, style: .continuous)
-                            .stroke(Color.white.opacity(0.9), lineWidth: 1.4)
+                        RoundedRectangle(cornerRadius: DesktopWidgetSpacing.compactBoxCornerRadius, style: .continuous)
+                            .stroke(DesktopWidgetColorPalette.compactBoxStroke, lineWidth: 1.5)
+                    )
+                    .shadow(
+                        color: DesktopWidgetColorPalette.compactBoxShadow,
+                        radius: DesktopWidgetSpacing.compactBoxShadowRadius,
+                        x: 0,
+                        y: DesktopWidgetSpacing.compactBoxShadowYOffset
                     )
             )
+            .contentShape(RoundedRectangle(cornerRadius: DesktopWidgetSpacing.compactBoxCornerRadius, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -568,10 +564,10 @@ private struct DesktopWidgetTimelineTaskCard: View {
 }
 
 private enum DesktopWidgetTypography {
-    static let compactCaption = Font.system(size: 12, weight: .medium)
+    static let compactLabel = Font.system(size: 12, weight: .medium)
     static let compactCurrentTask = Font.system(size: 14, weight: .semibold)
     static let compactNextTask = Font.system(size: 13, weight: .medium)
-    static let compactChevron = Font.system(size: 18, weight: .semibold)
+    static let compactHint = Font.system(size: 12, weight: .medium)
     static let timelineSectionTitle = Font.system(size: 16, weight: .semibold)
     static let timelinePrimaryTaskTitle = Font.system(size: 16, weight: .semibold)
     static let timelineMetadata = Font.system(size: 12, weight: .medium, design: .monospaced)
@@ -580,10 +576,11 @@ private enum DesktopWidgetTypography {
 }
 
 private enum DesktopWidgetColorPalette {
-    static let compactIndicatorGradientStart = Color(red: 0.10, green: 0.44, blue: 0.93)
-    static let compactIndicatorGradientEnd = Color(red: 0.05, green: 0.62, blue: 0.68)
-    static let compactBackgroundGradientStart = Color(red: 0.90, green: 0.96, blue: 1.0)
-    static let compactBackgroundGradientEnd = Color(red: 0.88, green: 0.97, blue: 0.95)
+    static let compactPrimaryText = Color.white.opacity(0.92)
+    static let compactSecondaryText = Color.white.opacity(0.72)
+    static let compactBoxFill = Color.white.opacity(0.18)
+    static let compactBoxStroke = Color.white.opacity(0.38)
+    static let compactBoxShadow = Color.black.opacity(0.2)
 
     static let timelineSectionFill = Color.white.opacity(0.65)
     static let timelineSectionStroke = Color.white.opacity(0.7)
@@ -603,13 +600,19 @@ private enum DesktopWidgetSpacing {
     static let widgetStack: CGFloat = 12
     static let widgetOuterPadding: CGFloat = 12
     static let widgetWindowCornerRadius: CGFloat = 24
+    static let compactWindowWidth: CGFloat = 392
+    static let compactWindowHeight: CGFloat = 178
+    static let detailedWindowWidth: CGFloat = 560
+    static let detailedWindowHeight: CGFloat = 580
 
-    static let compactRow: CGFloat = 10
-    static let compactText: CGFloat = 4
-    static let compactIndicatorSize: CGFloat = 58
-    static let compactHorizontalPadding: CGFloat = 14
-    static let compactVerticalPadding: CGFloat = 10
-    static let compactCornerRadius: CGFloat = 54
+    static let compactSectionGap: CGFloat = 10
+    static let compactLabelTextGap: CGFloat = 4
+    static let compactHintGap: CGFloat = 6
+    static let compactBoxHorizontalPadding: CGFloat = 24
+    static let compactBoxVerticalPadding: CGFloat = 14
+    static let compactBoxCornerRadius: CGFloat = 16
+    static let compactBoxShadowRadius: CGFloat = 10
+    static let compactBoxShadowYOffset: CGFloat = 8
 
     static let timelineSection: CGFloat = 10
     static let timelineSectionPadding: CGFloat = 10
