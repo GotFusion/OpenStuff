@@ -134,6 +134,41 @@ struct OpenStaffDashboardView: View {
                     }
                     .pickerStyle(.segmented)
 
+                    Text("模式运行控制")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(OpenStaffMode.allCases, id: \.self) { mode in
+                            HStack(spacing: 10) {
+                                Text(viewModel.modeDisplayName(for: mode))
+                                    .font(.callout)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(mode.color)
+                                    .frame(width: 82, alignment: .leading)
+
+                                Button("开始") {
+                                    viewModel.startMode(mode)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(mode.color)
+                                .disabled(viewModel.currentMode == mode)
+
+                                Button("停止") {
+                                    viewModel.stopMode(mode)
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(!viewModel.canStopMode(mode))
+
+                                Spacer(minLength: 0)
+
+                                Text(viewModel.currentMode == mode ? "运行中" : "未运行")
+                                    .font(.caption)
+                                    .foregroundStyle(viewModel.currentMode == mode ? mode.color : .secondary)
+                            }
+                        }
+                    }
+
                     Text("切换守卫输入")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -787,6 +822,54 @@ final class OpenStaffDashboardViewModel: ObservableObject {
         transitionMessage = decision.message
     }
 
+    func startMode(_ mode: OpenStaffMode) {
+        if currentMode == mode {
+            applySyntheticDecision(
+                fromMode: mode,
+                toMode: mode,
+                accepted: true,
+                status: .modeStable,
+                message: "\(modeDisplayName(for: mode))已在运行。"
+            )
+            return
+        }
+        requestModeChange(to: mode)
+    }
+
+    func stopMode(_ mode: OpenStaffMode) {
+        guard currentMode == mode else {
+            applySyntheticDecision(
+                fromMode: currentMode,
+                toMode: mode,
+                accepted: false,
+                status: .modeTransitionRejected,
+                errorCode: .transitionDenied,
+                message: "\(modeDisplayName(for: mode))当前未运行。"
+            )
+            return
+        }
+
+        if mode == .teaching {
+            applySyntheticDecision(
+                fromMode: .teaching,
+                toMode: .teaching,
+                accepted: true,
+                status: .modeStable,
+                message: "教学模式已停止，当前处于待机。"
+            )
+            return
+        }
+
+        requestModeChange(to: .teaching)
+        if lastTransitionAccepted {
+            transitionMessage = "\(modeDisplayName(for: mode))已停止，已回到教学模式。"
+        }
+    }
+
+    func canStopMode(_ mode: OpenStaffMode) -> Bool {
+        currentMode == mode
+    }
+
     func refreshDashboard(promptAccessibilityPermission: Bool) {
         permissionSnapshot = PermissionSnapshot.capture(promptAccessibilityPermission: promptAccessibilityPermission)
         recentTasks = RecentTaskRepository.loadRecentTasks(limit: 8)
@@ -877,6 +960,26 @@ final class OpenStaffDashboardViewModel: ObservableObject {
 
         feedbackWriteSucceeded = true
         feedbackStatusMessage = "安全控制：紧急停止已解除。"
+    }
+
+    private func applySyntheticDecision(
+        fromMode: OpenStaffMode,
+        toMode: OpenStaffMode,
+        accepted: Bool,
+        status: OrchestratorStatusCode,
+        errorCode: OrchestratorErrorCode? = nil,
+        message: String
+    ) {
+        let decision = ModeTransitionDecision(
+            fromMode: fromMode,
+            toMode: toMode,
+            accepted: accepted,
+            status: status,
+            errorCode: errorCode,
+            message: message
+        )
+        lastDecision = decision
+        transitionMessage = decision.message
     }
 
     private func reconcileLearningSelection() {
