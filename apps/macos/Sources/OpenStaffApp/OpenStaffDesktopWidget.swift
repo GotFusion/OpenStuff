@@ -428,6 +428,7 @@ struct OpenStaffDesktopWidgetView: View {
         VStack(alignment: .leading, spacing: DesktopWidgetSpacing.widgetStack) {
             widgetHeader
             compactBox
+            modeControlPanel
 
             if viewModel.displayMode == .detailed {
                 detailTimeline
@@ -454,6 +455,54 @@ struct OpenStaffDesktopWidgetView: View {
             viewModel.isWidgetWindowVisible = false
         }
         .animation(.easeInOut(duration: 0.25), value: viewModel.displayMode)
+    }
+
+    private var modeControlPanel: some View {
+        VStack(alignment: .leading, spacing: DesktopWidgetSpacing.modeControlRowGap) {
+            Text("模式运行控制")
+                .font(DesktopWidgetTypography.modeControlTitle)
+                .foregroundStyle(DesktopWidgetColorPalette.modeControlTitleText)
+
+            ForEach(OpenStaffMode.allCases, id: \.self) { mode in
+                HStack(spacing: DesktopWidgetSpacing.modeControlItemGap) {
+                    Text(mode.widgetDisplayName)
+                        .font(DesktopWidgetTypography.modeControlLabel)
+                        .foregroundStyle(mode.widgetAccentColor)
+                        .frame(width: DesktopWidgetSpacing.modeControlLabelWidth, alignment: .leading)
+
+                    Button("开始") {
+                        dashboardViewModel.startMode(mode)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(mode.widgetAccentColor)
+                    .disabled(dashboardViewModel.currentMode == mode)
+
+                    Button("停止") {
+                        dashboardViewModel.stopMode(mode)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(!dashboardViewModel.canStopMode(mode))
+
+                    Spacer(minLength: 0)
+
+                    Text(dashboardViewModel.currentMode == mode ? "运行中" : "未运行")
+                        .font(DesktopWidgetTypography.modeControlStatus)
+                        .foregroundStyle(
+                            dashboardViewModel.currentMode == mode
+                            ? mode.widgetAccentColor
+                            : DesktopWidgetColorPalette.modeControlSecondaryText
+                        )
+                }
+            }
+        }
+        .padding(.horizontal, DesktopWidgetSpacing.modeControlHorizontalPadding)
+        .padding(.vertical, DesktopWidgetSpacing.modeControlVerticalPadding)
+        .background(
+            RoundedRectangle(cornerRadius: DesktopWidgetSpacing.modeControlCornerRadius, style: .continuous)
+                .fill(DesktopWidgetColorPalette.modeControlPanelFill)
+        )
     }
 
     private var widgetHeader: some View {
@@ -743,6 +792,9 @@ private struct DesktopWidgetTimelineTaskCard: View {
 private enum DesktopWidgetTypography {
     static let headerHint = Font.system(size: 11, weight: .medium)
     static let headerCloseIcon = Font.system(size: 11, weight: .semibold)
+    static let modeControlTitle = Font.system(size: 12, weight: .semibold)
+    static let modeControlLabel = Font.system(size: 12, weight: .semibold)
+    static let modeControlStatus = Font.system(size: 11, weight: .medium)
     static let compactLabel = Font.system(size: 12, weight: .medium)
     static let compactCurrentTask = Font.system(size: 14, weight: .semibold)
     static let compactNextTask = Font.system(size: 13, weight: .medium)
@@ -768,6 +820,9 @@ private enum DesktopWidgetColorPalette {
 
     static let detailedWindowFill = Color.black.opacity(0.42)
     static let timelinePanelFill = Color.black.opacity(0.34)
+    static let modeControlPanelFill = Color.black.opacity(0.44)
+    static let modeControlTitleText = Color.white.opacity(0.92)
+    static let modeControlSecondaryText = Color.white.opacity(0.70)
     static let timelinePrimaryText = Color.white.opacity(0.98)
     static let timelineMetadataText = Color.white.opacity(0.86)
     static let timelineSecondaryText = Color.white.opacity(0.82)
@@ -796,9 +851,9 @@ private enum DesktopWidgetSpacing {
     static let widgetOuterPadding: CGFloat = 12
     static let widgetWindowCornerRadius: CGFloat = 24
     static let compactWindowWidth: CGFloat = 392
-    static let compactWindowHeight: CGFloat = 214
+    static let compactWindowHeight: CGFloat = 334
     static let detailedWindowWidth: CGFloat = 560
-    static let detailedWindowHeight: CGFloat = 624
+    static let detailedWindowHeight: CGFloat = 700
 
     static let headerHeight: CGFloat = 26
     static let headerCornerRadius: CGFloat = 10
@@ -808,6 +863,13 @@ private enum DesktopWidgetSpacing {
     static let headerDragIndicatorWidth: CGFloat = 38
     static let headerDragIndicatorHeight: CGFloat = 4
     static let headerCloseButtonSize: CGFloat = 24
+
+    static let modeControlHorizontalPadding: CGFloat = 10
+    static let modeControlVerticalPadding: CGFloat = 10
+    static let modeControlCornerRadius: CGFloat = 12
+    static let modeControlRowGap: CGFloat = 8
+    static let modeControlItemGap: CGFloat = 8
+    static let modeControlLabelWidth: CGFloat = 36
 
     static let compactSectionGap: CGFloat = 10
     static let compactLabelTextGap: CGFloat = 4

@@ -26,7 +26,7 @@ struct OpenStaffApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 392, height: 214)
+        .defaultSize(width: 392, height: 334)
 
         MenuBarExtra("OpenStaff", systemImage: "graduationcap.circle") {
             OpenStaffMenuBarContentView(
