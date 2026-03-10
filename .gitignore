@@ -12,6 +12,7 @@ __pycache__/
 .swiftpm/
 apps/macos/.build/
 apps/macos/.swiftpm/
+apps/Build/
 
 # Runtime data (keep directory skeleton only)
 data/raw-events/*
@@ -28,5 +29,12 @@ data/logs/*
 
 data/reports/*
 !data/reports/.gitkeep
+
+data/feedback/*
+!data/feedback/.gitkeep
+
+data/llm/
+
+data/runtime/
 
 data/skills/
