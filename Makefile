@@ -11,7 +11,7 @@ OPENCLAW_TARGET := OpenStaffOpenClawCLI
 STUDENT_TARGET := OpenStaffStudentCLI
 ARGS ?=
 
-.PHONY: build dev xcode-open capture slice knowledge orchestrator assist replay-verify openclaw student llm-prompts llm-validate llm-call llm-retry skill-build skills-sample skills-validate-sample benchmark-personal test test-unit test-integration test-e2e release-regression release-preflight
+.PHONY: build dev xcode-open capture slice knowledge orchestrator assist replay-verify openclaw student llm-prompts llm-validate llm-call llm-retry skill-build skills-sample skills-validate-sample validate-raw-events validate-knowledge validate-replay-sample benchmark-personal test test-unit test-integration test-e2e release-regression release-preflight
 
 build:
 	swift build --package-path $(APP_PACKAGE_PATH)
@@ -72,6 +72,15 @@ skills-validate-sample: skills-sample
 	python3 scripts/skills/validate_openclaw_skill.py --skill-dir /tmp/openstaff-skills-sample/openstaff-task-session-20260307-b2-001
 	python3 scripts/skills/validate_openclaw_skill.py --skill-dir /tmp/openstaff-skills-sample/openstaff-task-session-20260307-c3-001
 
+validate-raw-events:
+	python3 scripts/validation/validate_raw_event_logs.py --input data/raw-events --mode compat $(ARGS)
+
+validate-knowledge:
+	python3 scripts/validation/validate_knowledge_items.py --input data/knowledge --mode compat $(ARGS)
+
+validate-replay-sample:
+	python3 scripts/validation/run_replay_verify_check.py --knowledge core/knowledge/examples/knowledge-item.sample.json --snapshot core/executor/examples/replay-environment.sample.json $(ARGS)
+
 benchmark-personal:
 	python3 scripts/benchmarks/run_personal_desktop_benchmark.py $(ARGS)
 
@@ -88,7 +97,7 @@ test-e2e:
 	python3 scripts/tests/run_all.py --suite e2e
 
 release-regression:
-	python3 scripts/release/run_regression.py --suite all
+	python3 scripts/release/run_regression.py --suite all $(ARGS)
 
 release-preflight:
-	python3 scripts/release/run_regression.py --output-root /tmp/openstaff-release-preflight/regression --suite all
+	python3 scripts/release/run_regression.py --output-root /tmp/openstaff-release-preflight/regression --suite all $(ARGS)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Run release regression checks (TODO 6.3).
+Run release regression and validation gates (TODO 6.3 / TODO 10.2).
 """
 
 from __future__ import annotations
@@ -51,6 +51,26 @@ def parse_args() -> argparse.Namespace:
         "--skip-tests",
         action="store_true",
         help="Skip tests/run_all.py execution.",
+    )
+    parser.add_argument(
+        "--skip-benchmark",
+        action="store_true",
+        help="Skip personal benchmark execution.",
+    )
+    parser.add_argument(
+        "--benchmark-case-limit",
+        type=int,
+        help="Optional limit forwarded to the benchmark runner.",
+    )
+    parser.add_argument(
+        "--openclaw-executable",
+        type=str,
+        help="Optional prebuilt OpenStaffOpenClawCLI executable path for benchmark execution.",
+    )
+    parser.add_argument(
+        "--replay-verify-executable",
+        type=str,
+        help="Optional prebuilt OpenStaffReplayVerifyCLI executable path for replay-verify checks.",
     )
     parser.add_argument(
         "--report",
@@ -168,6 +188,106 @@ def append_skill_pipeline_checks(results: list[CheckResult], skills_root: Path) 
         )
 
 
+def append_data_validation_checks(results: list[CheckResult]) -> None:
+    results.append(
+        run_check(
+            name="raw-events-sample-strict",
+            command=[
+                sys.executable,
+                str(REPO_ROOT / "scripts/validation/validate_raw_event_logs.py"),
+                "--input",
+                str(REPO_ROOT / "core/capture/examples/raw-events.sample.jsonl"),
+                "--mode",
+                "strict",
+                "--json",
+            ],
+        )
+    )
+    results.append(
+        run_check(
+            name="raw-events-data-compat",
+            command=[
+                sys.executable,
+                str(REPO_ROOT / "scripts/validation/validate_raw_event_logs.py"),
+                "--input",
+                str(REPO_ROOT / "data/raw-events"),
+                "--mode",
+                "compat",
+                "--json",
+            ],
+        )
+    )
+    results.append(
+        run_check(
+            name="knowledge-sample-strict",
+            command=[
+                sys.executable,
+                str(REPO_ROOT / "scripts/validation/validate_knowledge_items.py"),
+                "--input",
+                str(REPO_ROOT / "core/knowledge/examples/knowledge-item.sample.json"),
+                "--mode",
+                "strict",
+                "--json",
+            ],
+        )
+    )
+    results.append(
+        run_check(
+            name="knowledge-data-compat",
+            command=[
+                sys.executable,
+                str(REPO_ROOT / "scripts/validation/validate_knowledge_items.py"),
+                "--input",
+                str(REPO_ROOT / "data/knowledge"),
+                "--mode",
+                "compat",
+                "--json",
+            ],
+        )
+    )
+
+
+def append_replay_verify_checks(results: list[CheckResult], replay_verify_executable: str | None) -> None:
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "scripts/validation/run_replay_verify_check.py"),
+        "--knowledge",
+        str(REPO_ROOT / "core/knowledge/examples/knowledge-item.sample.json"),
+        "--snapshot",
+        str(REPO_ROOT / "core/executor/examples/replay-environment.sample.json"),
+        "--expected-exit-code",
+        "0",
+        "--json",
+    ]
+    if replay_verify_executable:
+        command.extend(["--replay-verify-executable", replay_verify_executable])
+
+    results.append(run_check(name="replay-verify-sample", command=command))
+
+
+def append_benchmark_check(
+    results: list[CheckResult],
+    benchmark_root: Path,
+    *,
+    benchmark_case_limit: int | None,
+    openclaw_executable: str | None,
+) -> None:
+    command = [
+        sys.executable,
+        str(REPO_ROOT / "scripts/benchmarks/run_personal_desktop_benchmark.py"),
+        "--benchmark-root",
+        str(benchmark_root),
+        "--report",
+        str(benchmark_root / "manifest.json"),
+    ]
+    if benchmark_case_limit is not None:
+        command.extend(["--case-limit", str(benchmark_case_limit)])
+    if openclaw_executable:
+        command.extend(["--openclaw-executable", openclaw_executable])
+
+    results.append(run_check(name="benchmark-personal-desktop", command=command))
+
+
 def main() -> int:
     args = parse_args()
     run_id = datetime.now().strftime("run-%Y%m%d-%H%M%S")
@@ -177,6 +297,7 @@ def main() -> int:
     report_path = args.report.resolve() if args.report else run_dir / "regression-report.json"
 
     results: list[CheckResult] = []
+    append_data_validation_checks(results)
     results.append(
         run_check(
             name="llm-validate-sample",
@@ -192,6 +313,15 @@ def main() -> int:
     )
 
     append_skill_pipeline_checks(results, skills_root)
+    append_replay_verify_checks(results, args.replay_verify_executable)
+
+    if not args.skip_benchmark:
+        append_benchmark_check(
+            results,
+            run_dir / "benchmark",
+            benchmark_case_limit=args.benchmark_case_limit,
+            openclaw_executable=args.openclaw_executable,
+        )
 
     if not args.skip_tests:
         results.append(

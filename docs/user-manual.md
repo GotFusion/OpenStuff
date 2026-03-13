@@ -177,8 +177,15 @@ make release-preflight
 ```
 
 说明：
-- 该入口会依次执行：LLM 样例校验、skill 映射、`validate_openclaw_skill.py`、`validate_skill_bundle.py`。
+- 该入口会依次执行：原始事件校验、知识条目校验、LLM 样例校验、skill 映射、`validate_openclaw_skill.py`、`validate_skill_bundle.py`、replay verify sample、personal benchmark。
+- `data/raw-events` 采用 compat 模式校验，当前会把历史键盘事件缺失 `keyboard.isSensitiveInput` 记为告警而非失败。
+- `data/knowledge` 会对缺失 `target` 的历史知识条目输出告警，提醒 replay/自动执行能力可能退化。
 - `validate_skill_bundle.py` 默认允许 `needs_teacher_confirmation` 通过，以便发布前看到安全门提示；若要做“必须可自动执行”的 CI 门禁，可加 `--require-auto-runnable`。
+- 可通过 `ARGS` 透传预编译 CLI 路径，例如：
+
+```bash
+make release-preflight ARGS="--openclaw-executable apps/macos/.build/debug/OpenStaffOpenClawCLI --replay-verify-executable apps/macos/.build/debug/OpenStaffReplayVerifyCLI"
+```
 
 ## 6. 常见问题
 
