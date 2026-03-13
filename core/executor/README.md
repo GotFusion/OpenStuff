@@ -33,4 +33,4 @@
 ## 后续实现
 - 执行回滚与中断机制。
 - 更细粒度高风险动作保护（白名单、二次确认、沙箱演练）。
-- preflight 后的 repair flow 与 `repairVersion` 自动递增。
+- repair flow 已由 `core/repair/*` 提供检测与建议；后续补齐“自动生成新 skill 并递增 repairVersion”。

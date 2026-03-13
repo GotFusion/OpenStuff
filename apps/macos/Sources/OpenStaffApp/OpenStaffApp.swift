@@ -794,6 +794,56 @@ struct OpenStaffDashboardView: View {
                                             .foregroundStyle(.secondary)
                                             .textSelection(.enabled)
                                     }
+
+                                    HStack(spacing: 8) {
+                                        Button(viewModel.skillDriftProcessing ? "检测中..." : "检测漂移") {
+                                            viewModel.detectSelectedSkillDrift()
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .disabled(viewModel.skillActionProcessing || viewModel.skillDriftProcessing)
+                                    }
+
+                                    if let driftReport = viewModel.selectedSkillDriftReport {
+                                        Text("漂移诊断：\(driftReport.summary)")
+                                            .font(.caption)
+                                            .foregroundStyle(driftColor(for: driftReport.status))
+                                            .textSelection(.enabled)
+
+                                        ForEach(driftReport.findings.filter { $0.driftKind != .none }, id: \.stepId) { finding in
+                                            Text("步骤 \(finding.stepId)：\(finding.driftKind.rawValue) · \(finding.message)")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                                .textSelection(.enabled)
+                                        }
+                                    }
+
+                                    if let repairPlan = viewModel.selectedSkillRepairPlan,
+                                       !repairPlan.actions.isEmpty {
+                                        Text("修复建议：\(repairPlan.summary)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .textSelection(.enabled)
+
+                                        ForEach(repairPlan.actions, id: \.actionId) { action in
+                                            HStack(alignment: .top, spacing: 8) {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(action.title)
+                                                        .font(.caption)
+                                                        .fontWeight(.semibold)
+                                                    Text(action.description)
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                        .textSelection(.enabled)
+                                                }
+                                                Spacer()
+                                                Button(action.type.buttonTitle) {
+                                                    viewModel.recordSelectedSkillRepairAction(action.actionId)
+                                                }
+                                                .buttonStyle(.bordered)
+                                                .disabled(viewModel.skillActionProcessing || viewModel.skillDriftProcessing)
+                                            }
+                                        }
+                                    }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -968,6 +1018,15 @@ private func preflightColor(for status: SkillPreflightStatus) -> Color {
     }
 }
 
+private func driftColor(for status: SkillDriftStatus) -> Color {
+    switch status {
+    case .stable:
+        return .green
+    case .driftDetected:
+        return .orange
+    }
+}
+
 struct PermissionRow: View {
     let title: String
     let granted: Bool
@@ -1115,6 +1174,9 @@ final class OpenStaffDashboardViewModel: ObservableObject {
     @Published private(set) var skillActionStatusMessage: String?
     @Published private(set) var skillActionSucceeded = true
     @Published private(set) var skillActionProcessing = false
+    @Published private(set) var selectedSkillDriftReport: SkillDriftReport?
+    @Published private(set) var selectedSkillRepairPlan: SkillRepairPlan?
+    @Published private(set) var skillDriftProcessing = false
     @Published private(set) var executorBackendDescription: String
     @Published private(set) var usesHelperExecutorBackend: Bool
     @Published private(set) var executorHelperPath: String?
@@ -1149,6 +1211,8 @@ final class OpenStaffDashboardViewModel: ObservableObject {
         self.learningSessions = []
         self.executionLogs = []
         self.learnedSkills = []
+        self.selectedSkillDriftReport = nil
+        self.selectedSkillRepairPlan = nil
         let backend = OpenStaffActionExecutor.backend
         self.executorBackendDescription = backend.displayName
         self.usesHelperExecutorBackend = backend == .helper
@@ -1535,6 +1599,8 @@ final class OpenStaffDashboardViewModel: ObservableObject {
 
     func selectLearnedSkill(_ skillId: String?) {
         selectedLearnedSkillId = skillId
+        selectedSkillDriftReport = nil
+        selectedSkillRepairPlan = nil
         refreshSelectedSkillReview()
     }
 
@@ -1652,6 +1718,91 @@ final class OpenStaffDashboardViewModel: ObservableObject {
         } catch {
             skillActionSucceeded = false
             skillActionStatusMessage = "审核技能失败：\(error.localizedDescription)"
+        }
+    }
+
+    func detectSelectedSkillDrift() {
+        guard let skill = selectedLearnedSkill else {
+            skillActionSucceeded = false
+            skillActionStatusMessage = "未选择技能，无法检测漂移。"
+            return
+        }
+        guard !skillDriftProcessing else {
+            return
+        }
+
+        skillDriftProcessing = true
+        selectedSkillDriftReport = nil
+        selectedSkillRepairPlan = nil
+        skillActionSucceeded = true
+        skillActionStatusMessage = "正在检测技能漂移：\(skill.skillName)..."
+
+        Task.detached(priority: .userInitiated) {
+            do {
+                let payload = try SkillPreflightValidator().loadSkillBundle(from: skill.skillDirectoryURL)
+                let snapshot = LiveReplayEnvironmentSnapshotProvider().snapshot()
+                let driftReport = SkillDriftDetector().detect(
+                    payload: payload,
+                    snapshot: snapshot,
+                    skillDirectoryPath: skill.skillDirectoryPath
+                )
+                let repairPlan = SkillRepairPlanner().buildPlan(report: driftReport)
+
+                await MainActor.run { [weak self] in
+                    self?.skillDriftProcessing = false
+                    self?.selectedSkillDriftReport = driftReport
+                    self?.selectedSkillRepairPlan = repairPlan
+                    self?.skillActionSucceeded = driftReport.status == .stable
+                    if driftReport.status == .stable {
+                        self?.skillActionStatusMessage = "技能漂移检测完成：未发现明显漂移。"
+                    } else {
+                        self?.skillActionStatusMessage = "技能漂移检测完成：\(repairPlan.summary)"
+                    }
+                }
+            } catch {
+                await MainActor.run { [weak self] in
+                    self?.skillDriftProcessing = false
+                    self?.skillActionSucceeded = false
+                    self?.skillActionStatusMessage = "技能漂移检测失败：\(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    func recordSelectedSkillRepairAction(_ actionId: String) {
+        guard let skill = selectedLearnedSkill else {
+            skillActionSucceeded = false
+            skillActionStatusMessage = "未选择技能，无法记录修复动作。"
+            return
+        }
+        guard let repairPlan = selectedSkillRepairPlan,
+              let action = repairPlan.actions.first(where: { $0.actionId == actionId }) else {
+            skillActionSucceeded = false
+            skillActionStatusMessage = "当前没有可记录的修复动作。"
+            return
+        }
+
+        let entry = SkillRepairRequestWriteEntry(
+            requestId: "skill-repair-\(UUID().uuidString.lowercased())",
+            timestamp: OpenStaffDateFormatter.iso8601String(from: Date()),
+            skillId: skill.id,
+            skillName: skill.skillName,
+            skillDirectoryPath: skill.skillDirectoryPath,
+            actionType: action.type.rawValue,
+            actionTitle: action.title,
+            actionReason: action.reason,
+            affectedStepIds: action.affectedStepIds,
+            dominantDriftKind: repairPlan.dominantDriftKind.rawValue,
+            recommendedRepairVersion: repairPlan.recommendedRepairVersion
+        )
+
+        do {
+            try SkillRepairRequestWriter.append(entry)
+            skillActionSucceeded = true
+            skillActionStatusMessage = "已记录修复动作：\(action.title)。建议 repairVersion 更新到 \(repairPlan.recommendedRepairVersion ?? ((repairPlan.currentRepairVersion ?? 0) + 1))。"
+        } catch {
+            skillActionSucceeded = false
+            skillActionStatusMessage = "记录修复动作失败：\(error.localizedDescription)"
         }
     }
 
@@ -3949,6 +4100,12 @@ enum OpenStaffWorkspacePaths {
         dataDirectory
             .appendingPathComponent("skills", isDirectory: true)
             .appendingPathComponent("reviews", isDirectory: true)
+    }
+
+    static var skillsRepairDirectory: URL {
+        dataDirectory
+            .appendingPathComponent("skills", isDirectory: true)
+            .appendingPathComponent("repairs", isDirectory: true)
     }
 
     static func ensureDataDirectoryWritable() -> Bool {

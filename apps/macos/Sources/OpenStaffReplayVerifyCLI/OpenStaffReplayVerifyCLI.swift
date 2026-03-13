@@ -11,33 +11,65 @@ struct OpenStaffReplayVerifyCLI {
                 return
             }
 
-            let knowledgeItems = try ReplayKnowledgeLoader().load(from: options.knowledgeInputURL)
             let snapshot = try options.snapshotProvider().snapshot()
-            let verifier = ReplayVerifier(
-                snapshotProvider: StaticReplayEnvironmentSnapshotProvider(snapshot: snapshot)
-            )
+            switch options.input {
+            case .knowledge(let knowledgeURL):
+                let knowledgeItems = try ReplayKnowledgeLoader().load(from: knowledgeURL)
+                let verifier = ReplayVerifier(
+                    snapshotProvider: StaticReplayEnvironmentSnapshotProvider(snapshot: snapshot)
+                )
 
-            let reports = knowledgeItems.map { verifier.verify(item: $0, snapshot: snapshot) }
-            let batch = ReplayVerificationBatchReport(
-                generatedAt: currentTimestamp(),
-                snapshot: snapshot,
-                reports: reports,
-                summary: ReplayBatchSummary(reports: reports)
-            )
+                let reports = knowledgeItems.map { verifier.verify(item: $0, snapshot: snapshot) }
+                let batch = ReplayVerificationBatchReport(
+                    generatedAt: currentTimestamp(),
+                    snapshot: snapshot,
+                    reports: reports,
+                    summary: ReplayBatchSummary(reports: reports)
+                )
 
-            if options.printJSON {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                let data = try encoder.encode(batch)
-                if let text = String(data: data, encoding: .utf8) {
-                    print(text)
+                if options.printJSON {
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    let data = try encoder.encode(batch)
+                    if let text = String(data: data, encoding: .utf8) {
+                        print(text)
+                    }
+                } else {
+                    printSummary(batch: batch)
                 }
-            } else {
-                printSummary(batch: batch)
-            }
 
-            if batch.summary.degradedSteps > 0 || batch.summary.failedSteps > 0 {
-                Foundation.exit(2)
+                if batch.summary.degradedSteps > 0 || batch.summary.failedSteps > 0 {
+                    Foundation.exit(2)
+                }
+            case .skillDirectory(let skillDirectoryURL):
+                let payload = try SkillPreflightValidator().loadSkillBundle(from: skillDirectoryURL)
+                let driftReport = SkillDriftDetector().detect(
+                    payload: payload,
+                    snapshot: snapshot,
+                    skillDirectoryPath: skillDirectoryURL.path
+                )
+                let repairPlan = SkillRepairPlanner().buildPlan(report: driftReport)
+                let output = SkillDriftCLIOutput(
+                    generatedAt: currentTimestamp(),
+                    snapshot: snapshot,
+                    driftReport: driftReport,
+                    repairPlan: repairPlan
+                )
+
+                if options.printJSON {
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    let data = try encoder.encode(output)
+                    if let text = String(data: data, encoding: .utf8) {
+                        print(text)
+                    }
+                } else {
+                    printSummary(output: output)
+                }
+
+                if driftReport.status == .driftDetected {
+                    Foundation.exit(2)
+                }
             }
         } catch {
             print("Replay verify CLI failed: \(error.localizedDescription)")
@@ -51,9 +83,11 @@ struct OpenStaffReplayVerifyCLI {
 
         Usage:
           make replay-verify ARGS="--knowledge core/knowledge/examples/knowledge-item.sample.json --snapshot core/executor/examples/replay-environment.sample.json --json"
+          make replay-verify ARGS="--skill-dir data/skills/pending/example --snapshot core/executor/examples/replay-environment.sample.json --json"
 
         Flags:
           --knowledge <path>        KnowledgeItem JSON file or directory.
+          --skill-dir <path>        OpenStaff skill bundle directory.
           --snapshot <path>         Optional replay snapshot JSON file. If omitted, capture the current frontmost window via AX.
           --json                    Print structured verification report.
           --help                    Show this help message.
@@ -92,16 +126,47 @@ struct OpenStaffReplayVerifyCLI {
             }
         }
     }
+
+    static func printSummary(output: SkillDriftCLIOutput) {
+        print(
+            "Skill drift detection finished. " +
+            "skill=\(output.driftReport.skillName) " +
+            "status=\(output.driftReport.status.rawValue) " +
+            "dominant=\(output.driftReport.dominantDriftKind.rawValue)"
+        )
+        print("summary=\(output.driftReport.summary)")
+
+        for finding in output.driftReport.findings where finding.driftKind != .none {
+            print(
+                "  [\(finding.status.rawValue)] \(finding.stepId) " +
+                "drift=\(finding.driftKind.rawValue) " +
+                "reason=\(finding.failureReason?.rawValue ?? "-")"
+            )
+        }
+
+        if !output.repairPlan.actions.isEmpty {
+            print("repairPlan=\(output.repairPlan.summary)")
+            for action in output.repairPlan.actions {
+                print("  -> \(action.type.rawValue) steps=\(action.affectedStepIds.joined(separator: ","))")
+            }
+        }
+    }
+}
+
+enum ReplayVerifyInput {
+    case knowledge(URL)
+    case skillDirectory(URL)
 }
 
 struct ReplayVerifyCLIOptions {
-    let knowledgeInputPath: String
+    let input: ReplayVerifyInput
     let snapshotPath: String?
     let printJSON: Bool
     let showHelp: Bool
 
     static func parse(arguments: [String]) throws -> ReplayVerifyCLIOptions {
         var knowledgeInputPath: String?
+        var skillDirectoryPath: String?
         var snapshotPath: String?
         var printJSON = false
         var showHelp = false
@@ -117,6 +182,12 @@ struct ReplayVerifyCLIOptions {
                     throw ReplayVerifyCLIOptionError.missingValue("--knowledge")
                 }
                 knowledgeInputPath = arguments[index]
+            case "--skill-dir":
+                index += 1
+                guard index < arguments.count else {
+                    throw ReplayVerifyCLIOptionError.missingValue("--skill-dir")
+                }
+                skillDirectoryPath = arguments[index]
             case "--snapshot":
                 index += 1
                 guard index < arguments.count else {
@@ -136,42 +207,58 @@ struct ReplayVerifyCLIOptions {
 
         if showHelp {
             return ReplayVerifyCLIOptions(
-                knowledgeInputPath: knowledgeInputPath ?? "core/knowledge/examples/knowledge-item.sample.json",
+                input: .knowledge(resolveStatic(path: knowledgeInputPath ?? "core/knowledge/examples/knowledge-item.sample.json")),
                 snapshotPath: snapshotPath,
                 printJSON: printJSON,
                 showHelp: true
             )
         }
 
-        guard let knowledgeInputPath else {
-            throw ReplayVerifyCLIOptionError.missingRequired("--knowledge")
+        if knowledgeInputPath != nil, skillDirectoryPath != nil {
+            throw ReplayVerifyCLIOptionError.conflictingInputs
         }
 
-        return ReplayVerifyCLIOptions(
-            knowledgeInputPath: knowledgeInputPath,
-            snapshotPath: snapshotPath,
-            printJSON: printJSON,
-            showHelp: false
-        )
-    }
+        if let knowledgeInputPath {
+            return ReplayVerifyCLIOptions(
+                input: .knowledge(resolveStatic(path: knowledgeInputPath)),
+                snapshotPath: snapshotPath,
+                printJSON: printJSON,
+                showHelp: false
+            )
+        }
 
-    var knowledgeInputURL: URL {
-        resolve(path: knowledgeInputPath)
+        if let skillDirectoryPath {
+            return ReplayVerifyCLIOptions(
+                input: .skillDirectory(resolveStatic(path: skillDirectoryPath)),
+                snapshotPath: snapshotPath,
+                printJSON: printJSON,
+                showHelp: false
+            )
+        }
+
+        throw ReplayVerifyCLIOptionError.missingRequired("--knowledge or --skill-dir")
     }
 
     func snapshotProvider() throws -> any ReplayEnvironmentSnapshotProviding {
         if let snapshotPath {
-            let snapshot = try ReplayEnvironmentSnapshotLoader().load(from: resolve(path: snapshotPath))
+            let snapshot = try ReplayEnvironmentSnapshotLoader().load(from: Self.resolveStatic(path: snapshotPath))
             return StaticReplayEnvironmentSnapshotProvider(snapshot: snapshot)
         }
 
         return LiveReplayEnvironmentSnapshotProvider()
     }
 
-    private func resolve(path: String) -> URL {
+    private static func resolveStatic(path: String) -> URL {
         let currentDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
         return URL(fileURLWithPath: path, relativeTo: currentDirectory).standardizedFileURL
     }
+}
+
+struct SkillDriftCLIOutput: Codable {
+    let generatedAt: String
+    let snapshot: ReplayEnvironmentSnapshot
+    let driftReport: SkillDriftReport
+    let repairPlan: SkillRepairPlan
 }
 
 struct ReplayKnowledgeLoader {
@@ -274,6 +361,7 @@ struct ReplayBatchSummary: Codable {
 enum ReplayVerifyCLIOptionError: LocalizedError {
     case missingValue(String)
     case missingRequired(String)
+    case conflictingInputs
     case unknownFlag(String)
 
     var errorDescription: String? {
@@ -282,6 +370,8 @@ enum ReplayVerifyCLIOptionError: LocalizedError {
             return "Missing value for \(flag)."
         case .missingRequired(let flag):
             return "Missing required flag: \(flag). Use --help to see usage."
+        case .conflictingInputs:
+            return "Use either --knowledge or --skill-dir, not both."
         case .unknownFlag(let flag):
             return "Unknown flag: \(flag). Use --help to see supported flags."
         }
