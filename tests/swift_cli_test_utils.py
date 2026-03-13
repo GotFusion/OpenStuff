@@ -11,6 +11,7 @@ XCODE_DEVELOPER_DIR = Path("/Applications/Xcode.app/Contents/Developer")
 
 def build_swift_env() -> dict[str, str]:
     env = os.environ.copy()
+    env["HOME"] = "/tmp"
 
     if XCODE_DEVELOPER_DIR.exists():
         env["DEVELOPER_DIR"] = str(XCODE_DEVELOPER_DIR)

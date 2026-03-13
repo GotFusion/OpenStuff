@@ -37,7 +37,7 @@ cp .env.example .env.local
 
 按需填写：
 - `OPENAI_API_KEY`：使用在线 OpenAI provider 时必填。
-- `OPENCLAW_CLI_PATH`：OpenClaw 可执行文件路径。
+- `OPENCLAW_CLI_PATH`：OpenClaw 可执行文件路径；阶段 8.2 的 `OpenClawRunner` / `OpenStaffOpenClawCLI` 会优先使用它，未设置时回退到本地 gateway。
 
 ### 2.4 配置文件
 - 默认配置：`config/default.yaml`
@@ -122,6 +122,16 @@ make llm-retry
 make skills-sample
 make skills-validate-sample
 ```
+
+### 4.4 通过 OpenClaw Runner 执行已生成 skill
+```bash
+make openclaw ARGS="--skill-dir scripts/skills/examples/generated/openstaff-task-session-20260307-a1-001 --json-result"
+```
+
+说明：
+- 该入口会通过 `OpenClawRunner` 拉起 OpenClaw CLI / gateway 子进程。
+- 执行日志会写入 `data/logs/{yyyy-mm-dd}/{sessionId}-openclaw.log`。
+- 若执行失败，会返回结构化 `errorCode/stdout/stderr/exitCode` 结果，便于审阅与排障。
 
 ## 5. 发布前检查
 

@@ -13,6 +13,11 @@
   - 高风险关键词 + 正则规则拦截。
   - 紧急停止状态拦截（`emergencyStopActive`）。
   - 指定步骤失败模拟（用于闭环验证）。
+- `OpenClawRunner.swift`：阶段 8.2 的 OpenClaw 适配层，支持：
+  - 通过子进程调用 OpenClaw CLI / gateway。
+  - 捕获 stdout / stderr / exit code。
+  - 写入 `data/logs/{date}/{sessionId}-openclaw.log` 结构化执行日志。
+  - 产出 `OpenClawExecutionResult` 与 `OpenClawExecutionReview`。
 - `SemanticTargetResolver.swift`：阶段 7.3 语义定位解析器，支持
   `axPath -> roleAndTitle -> textAnchor -> imageAnchor -> coordinateFallback`
   的优先级解析与结构化失败原因。
@@ -23,3 +28,4 @@
 ## 后续实现
 - 执行回滚与中断机制。
 - 更细粒度高风险动作保护（白名单、二次确认、沙箱演练）。
+- 8.3 skill preflight 与 locator/白名单守门。

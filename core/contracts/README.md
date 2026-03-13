@@ -17,6 +17,7 @@ Shared contracts for cross-module communication.
 - `OrchestratorContracts.swift`: `OpenStaffMode`, `ModeTransitionContext`, `ModeTransitionDecision`, `OrchestratorLogEntry`.
 - `AssistModeContracts.swift`: `AssistSuggestion`, `AssistConfirmationDecision`, `AssistExecutionOutcome`, `AssistLoopLogEntry`.
 - `StudentModeContracts.swift`: `StudentExecutionPlan`, `StudentStepExecutionResult`, `StudentReviewReport`, `StudentLoopLogEntry`.
+- `OpenClawExecutionContracts.swift`: `OpenClawExecutionRequest`, `OpenClawExecutionResult`, `OpenClawGatewayExecutionPayload`, `OpenClawExecutionReview`.
 
 ## Rule
 

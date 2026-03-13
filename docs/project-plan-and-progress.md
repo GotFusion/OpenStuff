@@ -130,6 +130,7 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成阶段 7.2 采集上下文增强：CLI 与教学模式采集统一写出共享 `RawEvent`，补充窗口稳定签名、焦点元素可读属性、轻量截图锚点指纹和结构化降级错误码；高敏感键盘输入在安全文本场景下会自动脱敏。
 - 完成阶段 7.3 语义定位解析与回放验证器：新增 `SemanticTargetResolver`、`ReplayVerifier` 与 `OpenStaffReplayVerifyCLI`，支持 `axPath -> roleAndTitle -> textAnchor -> imageAnchor -> coordinateFallback` 的 dry-run 解析、离线 snapshot/实时前台窗口双输入，以及窗口不匹配、元素缺失、文本锚点变化、仅剩坐标回退等结构化结果输出。
 - 完成阶段 8.1 OpenClaw companion boundary：新增 `docs/adr/ADR-0007-openclaw-companion-boundary.md`，明确 OpenStaff/OpenClaw 职责切分；`scripts/skills/openclaw_skill_mapper.py`、skill schema 与 validator 升级为 `openstaff.openclaw-skill.v1`，统一写出 `knowledge/sourceTrace/skillBuild/stepMappings` provenance，并在 `SKILL.md` 中保留关键审计摘要。
+- 完成阶段 8.2 OpenClaw Runner 适配层：新增 `core/contracts/OpenClawExecutionContracts.swift`、`core/executor/OpenClawRunner.swift` 与 `apps/macos/Sources/OpenStaffOpenClawCLI/*`，实现 OpenClaw CLI / gateway 子进程调用、stdout/stderr/exit code 捕获、`data/logs/{date}/{sessionId}-openclaw.log` 结构化日志回写，以及 `OpenClawExecutionReview` 结果产出；3 条 sample skill 已通过真实子进程链路联调。
 - 新增用户使用说明书 `docs/user-manual.md`，覆盖教学->辅助->学生三模式日常运行与发布回归流程。
 - 完成菜单栏+前台部件 v4 的 Phase A（基础样式收敛）：字体/间距/节点透明色/截断规则统一 token 化，超长文案统一按场景截断。
 - 完成菜单栏+前台部件 v4 的 Phase B（精简模式改造）：球体样式替换为透明方框，精简信息收敛到当前任务/下一步/轻提示，整块区域可点击切换详细模式。
@@ -138,7 +139,7 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成菜单栏+前台部件 v4 的 Phase E（回归验收）：新增 `OpenStaffAppTests` 回归套件并完成空态/长文本/多任务/交互动作链路验证，且现有 unit/integration/e2e 与 `OpenStaffApp` 构建均通过。
 
 ### 未开始
-- OpenClaw skills 真实执行联调（`OpenClawRunner` / CLI gateway / 结构化执行结果回灌）。
+- Skill preflight、安全门与自动修复策略（阶段 8.3）。
 
 ### 下一步建议
 1. API 可用后补充 `provider=openai` 联机验证（模型行为、限流参数、错误码映射）并补充 skill 端到端执行联调。
