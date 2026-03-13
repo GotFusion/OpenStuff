@@ -121,17 +121,25 @@ make llm-retry
 ```bash
 make skills-sample
 make skills-validate-sample
+python3 scripts/validation/validate_skill_bundle.py \
+  --skill-dir scripts/skills/examples/generated/openstaff-task-session-20260307-a1-001
 ```
+
+说明：
+- `validate_openclaw_skill.py` 负责 bundle/frontmatter/schema 一致性校验。
+- `validate_skill_bundle.py` 负责执行前预检：locator 可解析性、高风险动作、低置信步骤、目标 App 白名单。
+- App 技能列表会直接展示预检状态；`需老师确认` 的技能不会进入学生模式自动执行。
 
 ### 4.4 通过 OpenClaw Runner 执行已生成 skill
 ```bash
-make openclaw ARGS="--skill-dir scripts/skills/examples/generated/openstaff-task-session-20260307-a1-001 --json-result"
+make openclaw ARGS="--skill-dir scripts/skills/examples/generated/openstaff-task-session-20260307-a1-001 --teacher-confirmed --json-result"
 ```
 
 说明：
 - 该入口会通过 `OpenClawRunner` 拉起 OpenClaw CLI / gateway 子进程。
+- 若 skill 命中 `requiresTeacherConfirmation` / 高风险 / 低置信安全门，必须显式传入 `--teacher-confirmed`。
 - 执行日志会写入 `data/logs/{yyyy-mm-dd}/{sessionId}-openclaw.log`。
-- 若执行失败，会返回结构化 `errorCode/stdout/stderr/exitCode` 结果，便于审阅与排障。
+- 若执行失败，会返回结构化 `errorCode/stdout/stderr/exitCode/preflight` 结果，便于审阅与排障。
 
 ## 5. 发布前检查
 
@@ -144,6 +152,10 @@ make release-regression
 ```bash
 make release-preflight
 ```
+
+说明：
+- 该入口会依次执行：LLM 样例校验、skill 映射、`validate_openclaw_skill.py`、`validate_skill_bundle.py`。
+- `validate_skill_bundle.py` 默认允许 `needs_teacher_confirmation` 通过，以便发布前看到安全门提示；若要做“必须可自动执行”的 CI 门禁，可加 `--require-auto-runnable`。
 
 ## 6. 常见问题
 

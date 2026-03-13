@@ -131,6 +131,7 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成阶段 7.3 语义定位解析与回放验证器：新增 `SemanticTargetResolver`、`ReplayVerifier` 与 `OpenStaffReplayVerifyCLI`，支持 `axPath -> roleAndTitle -> textAnchor -> imageAnchor -> coordinateFallback` 的 dry-run 解析、离线 snapshot/实时前台窗口双输入，以及窗口不匹配、元素缺失、文本锚点变化、仅剩坐标回退等结构化结果输出。
 - 完成阶段 8.1 OpenClaw companion boundary：新增 `docs/adr/ADR-0007-openclaw-companion-boundary.md`，明确 OpenStaff/OpenClaw 职责切分；`scripts/skills/openclaw_skill_mapper.py`、skill schema 与 validator 升级为 `openstaff.openclaw-skill.v1`，统一写出 `knowledge/sourceTrace/skillBuild/stepMappings` provenance，并在 `SKILL.md` 中保留关键审计摘要。
 - 完成阶段 8.2 OpenClaw Runner 适配层：新增 `core/contracts/OpenClawExecutionContracts.swift`、`core/executor/OpenClawRunner.swift` 与 `apps/macos/Sources/OpenStaffOpenClawCLI/*`，实现 OpenClaw CLI / gateway 子进程调用、stdout/stderr/exit code 捕获、`data/logs/{date}/{sessionId}-openclaw.log` 结构化日志回写，以及 `OpenClawExecutionReview` 结果产出；3 条 sample skill 已通过真实子进程链路联调。
+- 完成阶段 8.3 Skill 预检与安全门：新增 `core/executor/SkillPreflightValidator.swift`、`scripts/validation/validate_skill_bundle.py` 与 `docs/adr/ADR-0008-skill-preflight-and-repair.md`，统一执行前 schema/locator/高风险/目标 App 白名单检查；GUI 技能列表可直接展示预检摘要与失败原因，学生模式自动执行仅允许 `preflight=passed` 的技能直跑，`needs_teacher_confirmation` 技能必须经老师审核通过后才能手动执行；`OpenStaffOpenClawCLI` 也已接入 `teacherConfirmed` 安全门。
 - 新增用户使用说明书 `docs/user-manual.md`，覆盖教学->辅助->学生三模式日常运行与发布回归流程。
 - 完成菜单栏+前台部件 v4 的 Phase A（基础样式收敛）：字体/间距/节点透明色/截断规则统一 token 化，超长文案统一按场景截断。
 - 完成菜单栏+前台部件 v4 的 Phase B（精简模式改造）：球体样式替换为透明方框，精简信息收敛到当前任务/下一步/轻提示，整块区域可点击切换详细模式。
@@ -138,13 +139,10 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成菜单栏+前台部件 v4 的 Phase D（菜单栏原生化）：菜单改为系统原生样式，危险操作仅文字强调，模式切换在部件隐藏时可自动显示并联动生效。
 - 完成菜单栏+前台部件 v4 的 Phase E（回归验收）：新增 `OpenStaffAppTests` 回归套件并完成空态/长文本/多任务/交互动作链路验证，且现有 unit/integration/e2e 与 `OpenStaffApp` 构建均通过。
 
-### 未开始
-- Skill preflight、安全门与自动修复策略（阶段 8.3）。
-
 ### 下一步建议
 1. API 可用后补充 `provider=openai` 联机验证（模型行为、限流参数、错误码映射）并补充 skill 端到端执行联调。
-2. 增加 `scripts/validation`：对 `data/raw-events/**/*.jsonl`、`data/task-chunks/**/*.json`、`data/knowledge/**/*.json`、`data/skills/**/*.json` 做 schema 快速校验。
-3. 补齐 GUI 端“一次完整教学->辅助->学生”无终端演示，以完成阶段 5 验收项。
+2. 在 `scripts/validation` 上继续扩展：对 `data/raw-events/**/*.jsonl`、`data/task-chunks/**/*.json`、`data/knowledge/**/*.json`、`data/skills/**/*.json` 做 schema 快速校验。
+3. 补齐 preflight 失败后的 repair workflow，把 `repairVersion` 真正接进自动修复与老师复核闭环。
 
 ---
 

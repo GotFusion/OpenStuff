@@ -738,6 +738,10 @@ struct OpenStaffDashboardView: View {
                                     Text(skill.reviewStatusText)
                                         .foregroundStyle(skill.isReviewed ? .green : .secondary)
                                 }
+                                TableColumn("预检") { skill in
+                                    Text(skill.preflightStatusText)
+                                        .foregroundStyle(preflightColor(for: skill.preflight.status))
+                                }
                                 TableColumn("来源") { skill in
                                     Text(skill.storageScopeDisplayName)
                                 }
@@ -776,6 +780,23 @@ struct OpenStaffDashboardView: View {
                             Text("运行说明：仅在学生模式运行中可执行“运行”。")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+
+                            if let selectedSkill = viewModel.selectedLearnedSkill {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("预检摘要：\(selectedSkill.preflight.summary)")
+                                        .font(.caption)
+                                        .foregroundStyle(preflightColor(for: selectedSkill.preflight.status))
+                                        .textSelection(.enabled)
+
+                                    if !selectedSkill.preflightIssueSummary.isEmpty {
+                                        Text(selectedSkill.preflightIssueSummary)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .textSelection(.enabled)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         }
 
                         if let skillActionStatusMessage = viewModel.skillActionStatusMessage {
@@ -933,6 +954,17 @@ struct OpenStaffDashboardView: View {
             viewModel.startSafetyControlsIfNeeded()
             viewModel.refreshDashboard(promptAccessibilityPermission: false)
         }
+    }
+}
+
+private func preflightColor(for status: SkillPreflightStatus) -> Color {
+    switch status {
+    case .passed:
+        return .green
+    case .needsTeacherConfirmation:
+        return .orange
+    case .failed:
+        return .red
     }
 }
 
@@ -1517,6 +1549,11 @@ final class OpenStaffDashboardViewModel: ObservableObject {
             skillActionStatusMessage = "未找到技能，无法运行。"
             return
         }
+        if skill.preflight.status == .failed {
+            skillActionSucceeded = false
+            skillActionStatusMessage = "技能预检失败，已禁止运行：\(skill.preflight.summary)\n\(skill.preflightIssueSummary)"
+            return
+        }
         guard skill.llmOutputAccepted else {
             skillActionSucceeded = false
             skillActionStatusMessage = "技能未通过 LLM 结构校验（当前为 fallback 结果），已禁止运行。请修正手动粘贴结果并重新生成技能。"
@@ -1525,6 +1562,12 @@ final class OpenStaffDashboardViewModel: ObservableObject {
         if let review = skill.review, review.decision == .rejected {
             skillActionSucceeded = false
             skillActionStatusMessage = "技能已被驳回，禁止运行。请修正后重新审核。"
+            return
+        }
+        if skill.requiresApprovedTeacherConfirmation,
+           skill.review?.decision != .approved {
+            skillActionSucceeded = false
+            skillActionStatusMessage = "技能命中预检安全门，需要老师先执行“审核 -> 通过”后才能手动运行。\n\(skill.preflightIssueSummary)"
             return
         }
         guard !skillActionProcessing else {
@@ -1540,7 +1583,9 @@ final class OpenStaffDashboardViewModel: ObservableObject {
             do {
                 let result = try LearnedSkillRunner.run(
                     skill: skill,
-                    emergencyStopActive: emergencyStopActive
+                    emergencyStopActive: emergencyStopActive,
+                    automaticExecution: false,
+                    teacherConfirmationGranted: skill.review?.decision == .approved
                 )
                 await MainActor.run { [weak self] in
                     let hasQualityWarnings = !result.qualityWarnings.isEmpty
@@ -2019,7 +2064,7 @@ final class OpenStaffDashboardViewModel: ObservableObject {
 
         refreshLearnedSkills()
         guard let selectedSkill = selectAutoRunnableSkill(preferredSessionId: workflowSessionId) else {
-            transitionMessage = "学生模式已启动：未找到可自动执行的技能。要求：LLM 输出通过校验且未被驳回。请先在教学后处理中生成技能。"
+            transitionMessage = "学生模式已启动：未找到可自动执行的技能。要求：LLM 输出通过校验、预检通过且未被驳回；命中安全门或低置信技能不会直接自动执行。"
             return
         }
 
@@ -2032,7 +2077,9 @@ final class OpenStaffDashboardViewModel: ObservableObject {
             do {
                 let result = try LearnedSkillRunner.run(
                     skill: selectedSkill,
-                    emergencyStopActive: emergencyStopActive
+                    emergencyStopActive: emergencyStopActive,
+                    automaticExecution: true,
+                    teacherConfirmationGranted: false
                 )
 
                 await MainActor.run { [weak self] in
@@ -2066,6 +2113,9 @@ final class OpenStaffDashboardViewModel: ObservableObject {
     private func selectAutoRunnableSkill(preferredSessionId: String) -> LearnedSkillSummary? {
         let candidates = learnedSkillSnapshot.skills.filter { skill in
             guard skill.llmOutputAccepted else {
+                return false
+            }
+            guard skill.isAutoRunnable else {
                 return false
             }
             if let review = skill.review, review.decision == .rejected {
@@ -3120,6 +3170,7 @@ struct LearnedSkillSummary: Identifiable {
     let llmOutputAccepted: Bool
     let createdAt: Date?
     let review: LearnedSkillReviewSummary?
+    let preflight: SkillPreflightReport
 
     var isReviewed: Bool {
         review != nil
@@ -3134,6 +3185,22 @@ struct LearnedSkillSummary: Identifiable {
 
     var storageScopeDisplayName: String {
         storageScope.displayName
+    }
+
+    var preflightStatusText: String {
+        preflight.status.displayName
+    }
+
+    var preflightIssueSummary: String {
+        preflight.userFacingIssueMessages.joined(separator: "\n")
+    }
+
+    var requiresApprovedTeacherConfirmation: Bool {
+        preflight.requiresTeacherConfirmation
+    }
+
+    var isAutoRunnable: Bool {
+        preflight.isAutoRunnable
     }
 
     var skillDirectoryURL: URL {
@@ -3163,8 +3230,6 @@ struct LearnedSkillRunResult {
 }
 
 enum LearnedSkillRepository {
-    private static let decoder = JSONDecoder()
-
     static func loadSnapshot() -> LearnedSkillSnapshot {
         let reviewBySkillId = LearnedSkillReviewRepository.loadLatestBySkillId()
         let pendingSkills = loadSkills(
@@ -3212,6 +3277,7 @@ enum LearnedSkillRepository {
         storageScope: LearnedSkillStorageScope,
         reviewBySkillId: [String: LearnedSkillReviewSummary]
     ) -> [LearnedSkillSummary] {
+        let preflightValidator = SkillPreflightValidator()
         let fileManager = FileManager.default
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: root.path, isDirectory: &isDirectory), isDirectory.boolValue else {
@@ -3239,25 +3305,23 @@ enum LearnedSkillRepository {
             }
 
             let payloadURL = folder.appendingPathComponent("openstaff-skill.json", isDirectory: false)
-            guard fileManager.fileExists(atPath: payloadURL.path),
-                  let data = try? Data(contentsOf: payloadURL),
-                  let payload = try? decoder.decode(LearnedSkillPayload.self, from: data) else {
-                continue
-            }
+            let preflight = preflightValidator.validateSkillDirectory(at: folder)
+            let payload = try? preflightValidator.loadSkillBundle(from: folder)
 
             let skillId = "\(storageScope.rawValue)|\(folder.path)"
             let summary = LearnedSkillSummary(
                 id: skillId,
-                skillName: payload.skillName,
-                taskId: payload.taskId,
-                sessionId: payload.sessionId,
-                knowledgeItemId: payload.knowledgeItemId,
+                skillName: payload?.skillName ?? folder.lastPathComponent,
+                taskId: payload?.taskId ?? "unknown-task",
+                sessionId: payload?.sessionId ?? "unknown-session",
+                knowledgeItemId: payload?.knowledgeItemId ?? "unknown-knowledge",
                 skillDirectoryPath: folder.path,
                 skillJSONPath: payloadURL.path,
                 storageScope: storageScope,
-                llmOutputAccepted: payload.llmOutputAccepted,
-                createdAt: OpenStaffDateFormatter.date(from: payload.createdAt),
-                review: reviewBySkillId[skillId]
+                llmOutputAccepted: payload?.llmOutputAccepted ?? false,
+                createdAt: payload.flatMap { OpenStaffDateFormatter.date(from: $0.createdAt) },
+                review: reviewBySkillId[skillId],
+                preflight: preflight
             )
             skills.append(summary)
         }
@@ -3358,7 +3422,9 @@ enum LearnedSkillReviewRepository {
 enum LearnedSkillRunner {
     static func run(
         skill: LearnedSkillSummary,
-        emergencyStopActive: Bool
+        emergencyStopActive: Bool,
+        automaticExecution: Bool,
+        teacherConfirmationGranted: Bool
     ) throws -> LearnedSkillRunResult {
         let data: Data
         do {
@@ -3367,11 +3433,27 @@ enum LearnedSkillRunner {
             throw LearnedSkillRunnerError.skillPayloadReadFailed(skill.skillJSONPath)
         }
 
-        let payload: LearnedSkillPayload
+        let payload: SkillBundlePayload
         do {
-            payload = try JSONDecoder().decode(LearnedSkillPayload.self, from: data)
+            payload = try JSONDecoder().decode(SkillBundlePayload.self, from: data)
         } catch {
             throw LearnedSkillRunnerError.skillPayloadDecodeFailed(skill.skillJSONPath)
+        }
+
+        let preflight = SkillPreflightValidator().validate(
+            payload: payload,
+            skillDirectoryPath: skill.skillDirectoryPath
+        )
+        if preflight.status == .failed {
+            throw LearnedSkillRunnerError.skillPreflightFailed(preflight.summary)
+        }
+        if preflight.requiresTeacherConfirmation {
+            if automaticExecution {
+                throw LearnedSkillRunnerError.teacherConfirmationRequired(preflight.summary)
+            }
+            if !teacherConfirmationGranted {
+                throw LearnedSkillRunnerError.teacherConfirmationRequired(preflight.summary)
+            }
         }
 
         let planSteps = payload.mappedOutput.executionPlan.steps
@@ -3477,8 +3559,8 @@ enum LearnedSkillRunner {
     }
 
     private static func evaluateQualityWarnings(
-        payload: LearnedSkillPayload,
-        planSteps: [LearnedSkillExecutionStep],
+        payload: SkillBundlePayload,
+        planSteps: [SkillBundleExecutionStep],
         eventCoordinateIndex: [String: CGPoint]
     ) -> [String] {
         var warnings: [String] = []
@@ -3508,7 +3590,7 @@ enum LearnedSkillRunner {
 
     private static func finalizeStepExecution(
         base: StudentStepExecutionResult,
-        step: LearnedSkillExecutionStep,
+        step: SkillBundleExecutionStep,
         contextBundleId: String,
         eventCoordinateIndex: [String: CGPoint]
     ) -> StudentStepExecutionResult {
@@ -3555,7 +3637,7 @@ enum LearnedSkillRunner {
     }
 
     private static func performAction(
-        step: LearnedSkillExecutionStep,
+        step: SkillBundleExecutionStep,
         contextBundleId: String,
         eventCoordinateIndex: [String: CGPoint]
     ) -> LearnedSkillActionResult {
@@ -3639,6 +3721,8 @@ enum LearnedSkillRunnerError: LocalizedError {
     case skillPayloadReadFailed(String)
     case skillPayloadDecodeFailed(String)
     case skillStepEmpty(String)
+    case skillPreflightFailed(String)
+    case teacherConfirmationRequired(String)
 
     var errorDescription: String? {
         switch self {
@@ -3648,6 +3732,10 @@ enum LearnedSkillRunnerError: LocalizedError {
             return "解析技能文件失败：\(path)"
         case .skillStepEmpty(let skillName):
             return "技能 \(skillName) 不包含可执行步骤。"
+        case .skillPreflightFailed(let summary):
+            return "技能预检失败：\(summary)"
+        case .teacherConfirmationRequired(let summary):
+            return "技能命中安全门，需要老师确认后才能执行：\(summary)"
         }
     }
 }
@@ -3688,38 +3776,6 @@ private struct LearnedSkillReviewReadRecord: Decodable {
     let skillId: String
     let timestamp: String
     let decision: LearnedSkillReviewDecision
-}
-
-private struct LearnedSkillPayload: Decodable {
-    let skillName: String
-    let knowledgeItemId: String
-    let taskId: String
-    let sessionId: String
-    let llmOutputAccepted: Bool
-    let createdAt: String
-    let mappedOutput: LearnedSkillMappedOutput
-}
-
-private struct LearnedSkillMappedOutput: Decodable {
-    let context: LearnedSkillContext
-    let executionPlan: LearnedSkillExecutionPlan
-    let confidence: Double
-}
-
-private struct LearnedSkillContext: Decodable {
-    let appBundleId: String
-}
-
-private struct LearnedSkillExecutionPlan: Decodable {
-    let steps: [LearnedSkillExecutionStep]
-}
-
-private struct LearnedSkillExecutionStep: Decodable {
-    let stepId: String
-    let actionType: String
-    let instruction: String
-    let target: String
-    let sourceEventIds: [String]
 }
 
 enum LearnedSkillActionResult {

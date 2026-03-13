@@ -44,3 +44,16 @@ python3 scripts/skills/validate_openclaw_skill.py \
 ### 3) 运行三条示例转换（含 fallback 案例）
 
 见根目录 `Makefile` 的 `make skills-sample` 与 `make skills-validate-sample`。
+
+### 4) 执行 skill bundle 预检
+
+```bash
+python3 scripts/validation/validate_skill_bundle.py \
+  --skill-dir data/skills/pending/openstaff-task-session-20260307-a1-001
+```
+
+该预检会补充执行前安全门判断：
+- schema / frontmatter / provenance 一致性
+- locator 可解析性
+- 高风险动作与低置信步骤
+- 目标 App 白名单

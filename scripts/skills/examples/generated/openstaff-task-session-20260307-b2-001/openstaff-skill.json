@@ -28,7 +28,7 @@
       "skillName": "openstaff-task-session-20260307-b2-001",
       "skillSchemaVersion": "openstaff.openclaw-skill.v1",
       "skillGeneratorVersion": "openstaff-skill-mapper-v1",
-      "generatedAt": "2026-03-13T12:07:15+08:00",
+      "generatedAt": "2026-03-13T16:40:40+08:00",
       "repairVersion": 0,
       "llmOutputAccepted": true
     },
@@ -40,9 +40,45 @@
         "sourceEventIds": [
           "33333333-3333-4333-8333-333333333333"
         ],
-        "preferredLocatorType": null,
-        "coordinate": null,
-        "semanticTargets": []
+        "preferredLocatorType": "roleAndTitle",
+        "coordinate": {
+          "x": 166,
+          "y": 268,
+          "coordinateSpace": "screen"
+        },
+        "semanticTargets": [
+          {
+            "locatorType": "roleAndTitle",
+            "appBundleId": "com.apple.finder",
+            "windowTitlePattern": "^Documents$",
+            "elementRole": "AXRow",
+            "elementTitle": "Documents",
+            "elementIdentifier": "finder.sidebar.documents",
+            "boundingRect": {
+              "x": 132,
+              "y": 252,
+              "width": 132,
+              "height": 28,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.79,
+            "source": "capture"
+          },
+          {
+            "locatorType": "coordinateFallback",
+            "appBundleId": "com.apple.finder",
+            "windowTitlePattern": "^Documents$",
+            "boundingRect": {
+              "x": 166,
+              "y": 268,
+              "width": 1,
+              "height": 1,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.24,
+            "source": "capture"
+          }
+        ]
       },
       {
         "skillStepId": "step-002",
@@ -125,6 +161,6 @@
   },
   "diagnostics": [],
   "llmOutputAccepted": true,
-  "createdAt": "2026-03-13T12:07:15+08:00",
+  "createdAt": "2026-03-13T16:40:40+08:00",
   "generatorVersion": "openstaff-skill-mapper-v1"
 }

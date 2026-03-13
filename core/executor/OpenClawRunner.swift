@@ -104,6 +104,7 @@ public struct FoundationOpenClawSubprocessRunner: OpenClawSubprocessRunning {
 
 public struct OpenClawRunner {
     private let subprocessRunner: any OpenClawSubprocessRunning
+    private let preflightValidator: SkillPreflightValidator
     private let fileManager: FileManager
     private let nowProvider: () -> Date
     private let formatter: ISO8601DateFormatter
@@ -111,10 +112,12 @@ public struct OpenClawRunner {
 
     public init(
         subprocessRunner: any OpenClawSubprocessRunning = FoundationOpenClawSubprocessRunner(),
+        preflightValidator: SkillPreflightValidator = SkillPreflightValidator(),
         fileManager: FileManager = .default,
         nowProvider: @escaping () -> Date = Date.init
     ) {
         self.subprocessRunner = subprocessRunner
+        self.preflightValidator = preflightValidator
         self.fileManager = fileManager
         self.nowProvider = nowProvider
 
@@ -131,15 +134,48 @@ public struct OpenClawRunner {
         let startedAt = timestamp(nowProvider())
         let validationError = validate(request: request)
         if let validationError {
-            return finalizeFailure(
+            return finalizeTerminal(
                 request: request,
                 startedAt: startedAt,
                 finishedAt: timestamp(nowProvider()),
+                status: .failed,
                 summary: validationError,
                 errorCode: OpenClawExecutionErrorCode.runnerInvalidRequest.rawValue,
                 stdout: "",
                 stderr: validationError,
                 exitCode: nil
+            )
+        }
+
+        let preflight = preflightValidator.validateSkillDirectory(
+            at: URL(fileURLWithPath: request.skillDirectoryPath, isDirectory: true)
+        )
+        if preflight.status == .failed {
+            return finalizeTerminal(
+                request: request,
+                startedAt: startedAt,
+                finishedAt: timestamp(nowProvider()),
+                status: terminalStatus(for: preflight),
+                summary: preflight.summary,
+                errorCode: OpenClawExecutionErrorCode.skillPreflightFailed.rawValue,
+                stdout: "",
+                stderr: preflight.userFacingIssueMessages.joined(separator: "\n"),
+                exitCode: nil,
+                preflight: preflight
+            )
+        }
+        if preflight.requiresTeacherConfirmation && !request.teacherConfirmed {
+            return finalizeTerminal(
+                request: request,
+                startedAt: startedAt,
+                finishedAt: timestamp(nowProvider()),
+                status: .blocked,
+                summary: preflight.summary,
+                errorCode: OpenClawExecutionErrorCode.skillConfirmationRequired.rawValue,
+                stdout: "",
+                stderr: preflight.userFacingIssueMessages.joined(separator: "\n"),
+                exitCode: nil,
+                preflight: preflight
             )
         }
 
@@ -157,15 +193,17 @@ public struct OpenClawRunner {
 
         let startLogWrite = appendLog(entry: startEntry, logsRootDirectoryPath: request.logsRootDirectoryPath)
         if let logWriteError = startLogWrite.errorDescription {
-            return finalizeFailure(
+            return finalizeTerminal(
                 request: request,
                 startedAt: startedAt,
                 finishedAt: timestamp(nowProvider()),
+                status: .failed,
                 summary: "Failed to write OpenClaw start log.",
                 errorCode: OpenClawExecutionErrorCode.logWriteFailed.rawValue,
                 stdout: "",
                 stderr: logWriteError,
-                exitCode: nil
+                exitCode: nil,
+                preflight: preflight
             )
         }
 
@@ -182,40 +220,46 @@ public struct OpenClawRunner {
             case .timedOut:
                 errorCode = OpenClawExecutionErrorCode.processTimedOut.rawValue
             }
-            return finalizeFailure(
+            return finalizeTerminal(
                 request: request,
                 startedAt: startedAt,
                 finishedAt: timestamp(nowProvider()),
+                status: .failed,
                 summary: error.localizedDescription,
                 errorCode: errorCode,
                 stdout: "",
                 stderr: error.localizedDescription,
-                exitCode: nil
+                exitCode: nil,
+                preflight: preflight
             )
         } catch {
-            return finalizeFailure(
+            return finalizeTerminal(
                 request: request,
                 startedAt: startedAt,
                 finishedAt: timestamp(nowProvider()),
+                status: .failed,
                 summary: error.localizedDescription,
                 errorCode: OpenClawExecutionErrorCode.processLaunchFailed.rawValue,
                 stdout: "",
                 stderr: error.localizedDescription,
-                exitCode: nil
+                exitCode: nil,
+                preflight: preflight
             )
         }
 
         guard let gatewayPayload = decodeGatewayPayload(from: subprocessOutput.stdout) else {
             let summary = "OpenClaw runtime returned non-JSON or invalid structured output."
-            return finalizeFailure(
+            return finalizeTerminal(
                 request: request,
                 startedAt: startedAt,
                 finishedAt: timestamp(nowProvider()),
+                status: .failed,
                 summary: summary,
                 errorCode: OpenClawExecutionErrorCode.invalidRuntimeOutput.rawValue,
                 stdout: subprocessOutput.stdout,
                 stderr: subprocessOutput.stderr,
-                exitCode: subprocessOutput.exitCode
+                exitCode: subprocessOutput.exitCode,
+                preflight: preflight
             )
         }
 
@@ -223,7 +267,8 @@ public struct OpenClawRunner {
             request: request,
             subprocessOutput: subprocessOutput,
             gatewayPayload: gatewayPayload,
-            startedAt: startedAt
+            startedAt: startedAt,
+            preflight: preflight
         )
 
         let logWriteResult = appendGatewayLogs(
@@ -232,17 +277,19 @@ public struct OpenClawRunner {
             exitCode: subprocessOutput.exitCode
         )
         if let logWriteError = logWriteResult.errorDescription {
-            return finalizeFailure(
+            return finalizeTerminal(
                 request: request,
                 startedAt: startedAt,
                 finishedAt: timestamp(nowProvider()),
+                status: .failed,
                 summary: "OpenClaw runtime finished but writing execution logs failed.",
                 errorCode: OpenClawExecutionErrorCode.logWriteFailed.rawValue,
                 stdout: subprocessOutput.stdout,
                 stderr: [subprocessOutput.stderr, logWriteError]
                     .filter { !$0.isEmpty }
                     .joined(separator: "\n"),
-                exitCode: subprocessOutput.exitCode
+                exitCode: subprocessOutput.exitCode,
+                preflight: preflight
             )
         }
 
@@ -264,7 +311,8 @@ public struct OpenClawRunner {
             blockedSteps: gatewayPayload.blockedSteps,
             summary: gatewayPayload.summary,
             logFilePath: logWriteResult.path ?? "",
-            exitCode: subprocessOutput.exitCode
+            exitCode: subprocessOutput.exitCode,
+            preflight: preflight
         )
 
         return OpenClawExecutionResult(
@@ -288,7 +336,8 @@ public struct OpenClawRunner {
             failedSteps: result.failedSteps,
             blockedSteps: result.blockedSteps,
             stepResults: result.stepResults,
-            review: review
+            review: review,
+            preflight: preflight
         )
     }
 
@@ -296,7 +345,8 @@ public struct OpenClawRunner {
         request: OpenClawExecutionRequest,
         subprocessOutput: OpenClawSubprocessOutput,
         gatewayPayload: OpenClawGatewayExecutionPayload,
-        startedAt: String
+        startedAt: String,
+        preflight: SkillPreflightReport
     ) -> OpenClawExecutionResult {
         OpenClawExecutionResult(
             traceId: request.traceId,
@@ -318,27 +368,40 @@ public struct OpenClawRunner {
             succeededSteps: gatewayPayload.succeededSteps,
             failedSteps: gatewayPayload.failedSteps,
             blockedSteps: gatewayPayload.blockedSteps,
-            stepResults: gatewayPayload.stepResults
+            stepResults: gatewayPayload.stepResults,
+            preflight: preflight
         )
     }
 
-    private func finalizeFailure(
+    private func finalizeTerminal(
         request: OpenClawExecutionRequest,
         startedAt: String,
         finishedAt: String,
+        status: OpenClawExecutionStatus,
         summary: String,
         errorCode: String,
         stdout: String,
         stderr: String,
-        exitCode: Int32?
+        exitCode: Int32?,
+        preflight: SkillPreflightReport? = nil
     ) -> OpenClawExecutionResult {
+        let logStatus: String
+        switch status {
+        case .succeeded:
+            logStatus = "STATUS_OCW_EXECUTION_COMPLETED"
+        case .failed:
+            logStatus = "STATUS_OCW_EXECUTION_FAILED"
+        case .blocked:
+            logStatus = "STATUS_OCW_EXECUTION_BLOCKED"
+        }
+
         let failureEntry = OpenClawExecutionLogEntry(
             timestamp: finishedAt,
             traceId: request.traceId,
             sessionId: request.sessionId,
             taskId: request.taskId,
             component: request.component,
-            status: "STATUS_OCW_EXECUTION_FAILED",
+            status: logStatus,
             errorCode: errorCode,
             message: summary,
             skillName: request.skillName,
@@ -355,7 +418,7 @@ public struct OpenClawRunner {
             skillName: request.skillName,
             skillDirectoryPath: request.skillDirectoryPath,
             component: request.component,
-            status: .failed,
+            status: status,
             errorCode: errorCode,
             startedAt: startedAt,
             finishedAt: finishedAt,
@@ -365,7 +428,8 @@ public struct OpenClawRunner {
             blockedSteps: 0,
             summary: summary,
             logFilePath: logResult.path ?? "",
-            exitCode: exitCode
+            exitCode: exitCode,
+            preflight: preflight
         )
 
         let mergedStderr = [stderr, logResult.errorDescription]
@@ -383,7 +447,7 @@ public struct OpenClawRunner {
             skillDirectoryPath: request.skillDirectoryPath,
             runtimeExecutablePath: request.runtimeExecutablePath,
             runtimeArguments: request.runtimeArguments,
-            status: .failed,
+            status: status,
             errorCode: errorCode,
             exitCode: exitCode,
             startedAt: startedAt,
@@ -396,7 +460,8 @@ public struct OpenClawRunner {
             failedSteps: 0,
             blockedSteps: 0,
             stepResults: [],
-            review: review
+            review: review,
+            preflight: preflight
         )
     }
 
@@ -562,6 +627,20 @@ public struct OpenClawRunner {
 
     private func timestamp(_ date: Date) -> String {
         formatter.string(from: date)
+    }
+
+    private func terminalStatus(for preflight: SkillPreflightReport) -> OpenClawExecutionStatus {
+        let failedCodes: Set<SkillPreflightIssueCode> = [
+            .skillBundleUnreadable,
+            .skillBundleDecodeFailed,
+            .unsupportedSchemaVersion,
+            .emptyExecutionPlan,
+            .expectedStepCountMismatch
+        ]
+        if preflight.issues.contains(where: { failedCodes.contains($0.code) }) {
+            return .failed
+        }
+        return .blocked
     }
 }
 

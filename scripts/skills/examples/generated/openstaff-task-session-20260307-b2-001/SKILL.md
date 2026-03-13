@@ -30,7 +30,7 @@ metadata: {"openclaw":{"emoji":"🎓","skillKey":"openstaff-task-session-2026030
 1. [click] 点击 Finder 侧边栏中的 Documents。
    - knowledgeStepId: `step-001`
    - target: `unknown`
-   - preferredLocatorType: `unknown`
+   - preferredLocatorType: `roleAndTitle`
    - sourceEventIds: `33333333-3333-4333-8333-333333333333`
 2. [shortcut] 使用快捷键 Command+Shift+N 创建新文件夹。
    - knowledgeStepId: `step-002`

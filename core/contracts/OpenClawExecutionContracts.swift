@@ -11,6 +11,8 @@ public enum OpenClawExecutionErrorCode: String, Codable, Sendable {
     case runtimeExecutableMissing = "OCW-RUNNER-EXECUTABLE-MISSING"
     case processLaunchFailed = "OCW-RUNNER-LAUNCH-FAILED"
     case processTimedOut = "OCW-RUNNER-TIMED-OUT"
+    case skillPreflightFailed = "OCW-SKILL-PREFLIGHT-FAILED"
+    case skillConfirmationRequired = "OCW-SKILL-CONFIRMATION-REQUIRED"
     case invalidRuntimeOutput = "OCW-RUNTIME-INVALID-OUTPUT"
     case invalidSkillBundle = "OCW-SKILL-INVALID"
     case runtimeFailed = "OCW-RUNTIME-FAILED"
@@ -32,6 +34,7 @@ public struct OpenClawExecutionRequest: Codable, Equatable, Sendable {
     public let logsRootDirectoryPath: String
     public let component: String
     public let timeoutSeconds: Int?
+    public let teacherConfirmed: Bool
 
     public init(
         schemaVersion: String = "openstaff.openclaw.execution-request.v0",
@@ -46,7 +49,8 @@ public struct OpenClawExecutionRequest: Codable, Equatable, Sendable {
         workingDirectoryPath: String? = nil,
         logsRootDirectoryPath: String = "data/logs",
         component: String = "student.openclaw.runner",
-        timeoutSeconds: Int? = 30
+        timeoutSeconds: Int? = 30,
+        teacherConfirmed: Bool = false
     ) {
         self.schemaVersion = schemaVersion
         self.traceId = traceId
@@ -61,6 +65,7 @@ public struct OpenClawExecutionRequest: Codable, Equatable, Sendable {
         self.logsRootDirectoryPath = logsRootDirectoryPath
         self.component = component
         self.timeoutSeconds = timeoutSeconds
+        self.teacherConfirmed = teacherConfirmed
     }
 }
 
@@ -166,6 +171,7 @@ public struct OpenClawExecutionReview: Codable, Equatable, Sendable {
     public let summary: String
     public let logFilePath: String
     public let exitCode: Int32?
+    public let preflight: SkillPreflightReport?
 
     public init(
         reviewId: String,
@@ -185,7 +191,8 @@ public struct OpenClawExecutionReview: Codable, Equatable, Sendable {
         blockedSteps: Int,
         summary: String,
         logFilePath: String,
-        exitCode: Int32? = nil
+        exitCode: Int32? = nil,
+        preflight: SkillPreflightReport? = nil
     ) {
         self.reviewId = reviewId
         self.traceId = traceId
@@ -205,6 +212,7 @@ public struct OpenClawExecutionReview: Codable, Equatable, Sendable {
         self.summary = summary
         self.logFilePath = logFilePath
         self.exitCode = exitCode
+        self.preflight = preflight
     }
 }
 
@@ -231,6 +239,7 @@ public struct OpenClawExecutionResult: Codable, Equatable, Sendable {
     public let blockedSteps: Int
     public let stepResults: [OpenClawExecutionStepResult]
     public let review: OpenClawExecutionReview?
+    public let preflight: SkillPreflightReport?
 
     public init(
         schemaVersion: String = "openstaff.openclaw.execution-result.v0",
@@ -254,7 +263,8 @@ public struct OpenClawExecutionResult: Codable, Equatable, Sendable {
         failedSteps: Int,
         blockedSteps: Int,
         stepResults: [OpenClawExecutionStepResult],
-        review: OpenClawExecutionReview? = nil
+        review: OpenClawExecutionReview? = nil,
+        preflight: SkillPreflightReport? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.traceId = traceId
@@ -278,6 +288,7 @@ public struct OpenClawExecutionResult: Codable, Equatable, Sendable {
         self.blockedSteps = blockedSteps
         self.stepResults = stepResults
         self.review = review
+        self.preflight = preflight
     }
 }
 

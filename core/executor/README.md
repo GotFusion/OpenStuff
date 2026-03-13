@@ -18,6 +18,11 @@
   - 捕获 stdout / stderr / exit code。
   - 写入 `data/logs/{date}/{sessionId}-openclaw.log` 结构化执行日志。
   - 产出 `OpenClawExecutionResult` 与 `OpenClawExecutionReview`。
+- `SkillPreflightValidator.swift`：阶段 8.3 的统一预检器，支持：
+  - `openstaff-skill.json` / `SKILL.md` 结构与 schema 一致性检查。
+  - click locator 可解析性检查（语义 locator / 坐标回退）。
+  - 高风险动作、低置信步骤、目标 App 白名单判断。
+  - 产出 `SkillPreflightReport`，供 GUI / CLI / release-preflight 共享。
 - `SemanticTargetResolver.swift`：阶段 7.3 语义定位解析器，支持
   `axPath -> roleAndTitle -> textAnchor -> imageAnchor -> coordinateFallback`
   的优先级解析与结构化失败原因。
@@ -28,4 +33,4 @@
 ## 后续实现
 - 执行回滚与中断机制。
 - 更细粒度高风险动作保护（白名单、二次确认、沙箱演练）。
-- 8.3 skill preflight 与 locator/白名单守门。
+- preflight 后的 repair flow 与 `repairVersion` 自动递增。

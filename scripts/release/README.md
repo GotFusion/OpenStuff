@@ -7,7 +7,8 @@
   - 执行发布回归检查：
     1. LLM 输出样例校验。
     2. 三条 skill 映射 + skill 目录校验。
-    3. 测试套件（`scripts/tests/run_all.py`）。
+    3. 三条 skill bundle preflight（schema / locator / 风险 / App 白名单）。
+    4. 测试套件（`scripts/tests/run_all.py`）。
   - 输出结构化回归报告 JSON。
 
 ## 推荐命令

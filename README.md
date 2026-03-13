@@ -55,12 +55,13 @@ make release-preflight
 - `make skill-build`：运行 Phase 3.3 单条 skill 映射（KnowledgeItem + LLM 输出 -> OpenClaw skill）。
 - `make skills-sample`：运行 3 条示例任务映射（含 1 条 fallback 案例）。
 - `make skills-validate-sample`：校验 `skills-sample` 输出技能的可读性与一致性。
+- `python3 scripts/validation/validate_skill_bundle.py --skill-dir <path>`：执行 skill 预检（schema / locator / 风险 / App 白名单）。
 - `make test`：一键执行 unit + integration + e2e 测试并输出汇总。
 - `make test-unit`：仅执行单元测试。
 - `make test-integration`：仅执行集成测试。
 - `make test-e2e`：仅执行 E2E 测试。
 - `make release-regression`：执行发布回归检查并输出报告。
-- `make release-preflight`：一键执行发布回归预检。
+- `make release-preflight`：一键执行发布回归预检（现已包含 skill bundle preflight）。
 
 ## 目录概览
 

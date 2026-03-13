@@ -155,6 +155,18 @@ def append_skill_pipeline_checks(results: list[CheckResult], skills_root: Path) 
             )
         )
 
+        results.append(
+            run_check(
+                name=f"skill-preflight-{case['name']}",
+                command=[
+                    sys.executable,
+                    str(REPO_ROOT / "scripts/validation/validate_skill_bundle.py"),
+                    "--skill-dir",
+                    str(skills_root / case["skillDir"]),
+                ],
+            )
+        )
+
 
 def main() -> int:
     args = parse_args()

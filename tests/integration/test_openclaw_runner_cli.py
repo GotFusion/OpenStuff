@@ -1,4 +1,6 @@
 from pathlib import Path
+import json
+import shutil
 import tempfile
 import unittest
 
@@ -26,6 +28,7 @@ class OpenClawRunnerCLITests(unittest.TestCase):
                         str(skill_dir),
                         "--logs-root",
                         str(logs_root),
+                        "--teacher-confirmed",
                         "--json-result",
                     ],
                 )
@@ -50,6 +53,7 @@ class OpenClawRunnerCLITests(unittest.TestCase):
                     str(logs_root),
                     "--simulate-runtime-failure-step",
                     "1",
+                    "--teacher-confirmed",
                     "--json-result",
                 ],
             )
@@ -62,6 +66,59 @@ class OpenClawRunnerCLITests(unittest.TestCase):
             self.assertEqual(payload["stepResults"][0]["errorCode"], "OCW-RUNTIME-FAILED")
             self.assertIn("OpenClaw gateway error", payload["stderr"])
             self.assertTrue(Path(payload["review"]["logFilePath"]).exists())
+
+    def test_runner_blocks_confirmation_required_skill_without_teacher_confirmation(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logs_root = Path(tmpdir) / "logs"
+            result = run_swift_target(
+                "OpenStaffOpenClawCLI",
+                [
+                    "--skill-dir",
+                    str(SKILL_SAMPLE_DIRECTORIES[0]),
+                    "--logs-root",
+                    str(logs_root),
+                    "--json-result",
+                ],
+            )
+
+            self.assertEqual(result.returncode, 2, msg=result.stderr or result.stdout)
+            payload = extract_last_json_object(result.stdout)
+            self.assertEqual(payload["status"], "blocked")
+            self.assertEqual(payload["errorCode"], "OCW-SKILL-CONFIRMATION-REQUIRED")
+            self.assertEqual(payload["preflight"]["status"], "needs_teacher_confirmation")
+            self.assertTrue(
+                any(item["code"] == "SPF-MANUAL-CONFIRMATION-REQUIRED" for item in payload["preflight"]["issues"])
+            )
+
+    def test_runner_blocks_preflight_failure_before_gateway(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skill_dir = Path(tmpdir) / "skill"
+            shutil.copytree(SKILL_SAMPLE_DIRECTORIES[0], skill_dir)
+            payload_path = skill_dir / "openstaff-skill.json"
+            payload = json.loads(payload_path.read_text(encoding="utf-8"))
+            payload["mappedOutput"]["context"]["appBundleId"] = "unknown"
+            payload["mappedOutput"]["executionPlan"]["completionCriteria"]["requiredFrontmostAppBundleId"] = "unknown"
+            payload_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+            logs_root = Path(tmpdir) / "logs"
+            result = run_swift_target(
+                "OpenStaffOpenClawCLI",
+                [
+                    "--skill-dir",
+                    str(skill_dir),
+                    "--logs-root",
+                    str(logs_root),
+                    "--teacher-confirmed",
+                    "--json-result",
+                ],
+            )
+
+            self.assertEqual(result.returncode, 2, msg=result.stderr or result.stdout)
+            payload = extract_last_json_object(result.stdout)
+            self.assertEqual(payload["status"], "blocked")
+            self.assertEqual(payload["errorCode"], "OCW-SKILL-PREFLIGHT-FAILED")
+            self.assertEqual(payload["preflight"]["status"], "failed")
+            self.assertTrue(any(item["code"] == "SPF-MISSING-CONTEXT-APP" for item in payload["preflight"]["issues"]))
 
 
 if __name__ == "__main__":

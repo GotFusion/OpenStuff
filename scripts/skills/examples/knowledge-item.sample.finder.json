@@ -11,7 +11,48 @@
       "instruction": "点击 Finder 侧边栏中的 Documents。",
       "sourceEventIds": [
         "33333333-3333-4333-8333-333333333333"
-      ]
+      ],
+      "target": {
+        "coordinate": {
+          "x": 166,
+          "y": 268,
+          "coordinateSpace": "screen"
+        },
+        "semanticTargets": [
+          {
+            "locatorType": "roleAndTitle",
+            "appBundleId": "com.apple.finder",
+            "windowTitlePattern": "^Documents$",
+            "elementRole": "AXRow",
+            "elementTitle": "Documents",
+            "elementIdentifier": "finder.sidebar.documents",
+            "boundingRect": {
+              "x": 132,
+              "y": 252,
+              "width": 132,
+              "height": 28,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.79,
+            "source": "capture"
+          },
+          {
+            "locatorType": "coordinateFallback",
+            "appBundleId": "com.apple.finder",
+            "windowTitlePattern": "^Documents$",
+            "boundingRect": {
+              "x": 166,
+              "y": 268,
+              "width": 1,
+              "height": 1,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.24,
+            "source": "capture"
+          }
+        ],
+        "preferredLocatorType": "roleAndTitle"
+      }
     },
     {
       "stepId": "step-002",

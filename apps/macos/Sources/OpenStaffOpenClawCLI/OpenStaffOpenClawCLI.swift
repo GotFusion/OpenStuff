@@ -40,7 +40,8 @@ struct OpenStaffOpenClawCLI {
                 ),
                 workingDirectoryPath: options.workingDirectoryPath,
                 logsRootDirectoryPath: options.logsRootDirectoryURL.path,
-                timeoutSeconds: options.timeoutSeconds
+                timeoutSeconds: options.timeoutSeconds,
+                teacherConfirmed: options.teacherConfirmed
             )
 
             let result = OpenClawRunner().execute(request: request)
@@ -181,6 +182,9 @@ struct OpenStaffOpenClawCLI {
         print("summary=\(result.summary)")
         let exitCodeText = result.exitCode.map { String($0) } ?? "nil"
         print("exitCode=\(exitCodeText)")
+        if let preflight = result.preflight {
+            print("preflight=\(preflight.status.rawValue)")
+        }
         if let review = result.review {
             print("logFile=\(review.logFilePath)")
         }
@@ -225,6 +229,7 @@ struct OpenStaffOpenClawCLI {
           --working-dir <path>                  Optional subprocess working directory.
           --timeout-seconds <n>                 Subprocess timeout in seconds. Default: 30
           --simulate-runtime-failure-step <n>   Simulate gateway failure on step n (1-based).
+          --teacher-confirmed                   Confirm teacher approval for skills gated by preflight.
           --json-result                         Print structured JSON result.
           --help                                Show this help message.
         """)
@@ -249,6 +254,7 @@ private struct OpenClawCLIOptions {
     let workingDirectoryPath: String?
     let timeoutSeconds: Int
     let simulateRuntimeFailureAtStepIndex: Int?
+    let teacherConfirmed: Bool
     let jsonResult: Bool
     let showHelp: Bool
     let gatewayMode: Bool
@@ -271,6 +277,7 @@ private struct OpenClawCLIOptions {
         var workingDirectoryPath: String?
         var timeoutSeconds = 30
         var simulateRuntimeFailureAtStepIndex: Int?
+        var teacherConfirmed = false
         var jsonResult = false
         var showHelp = false
         var gatewayMode = false
@@ -343,6 +350,8 @@ private struct OpenClawCLIOptions {
                     )
                 }
                 simulateRuntimeFailureAtStepIndex = parsed
+            case "--teacher-confirmed":
+                teacherConfirmed = true
             case "--json-result":
                 jsonResult = true
             case "--gateway-mode":
@@ -367,6 +376,7 @@ private struct OpenClawCLIOptions {
                 workingDirectoryPath: workingDirectoryPath,
                 timeoutSeconds: timeoutSeconds,
                 simulateRuntimeFailureAtStepIndex: simulateRuntimeFailureAtStepIndex,
+                teacherConfirmed: teacherConfirmed,
                 jsonResult: jsonResult,
                 showHelp: true,
                 gatewayMode: gatewayMode
@@ -387,6 +397,7 @@ private struct OpenClawCLIOptions {
             workingDirectoryPath: workingDirectoryPath,
             timeoutSeconds: timeoutSeconds,
             simulateRuntimeFailureAtStepIndex: simulateRuntimeFailureAtStepIndex,
+            teacherConfirmed: teacherConfirmed,
             jsonResult: jsonResult,
             showHelp: false,
             gatewayMode: gatewayMode
