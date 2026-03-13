@@ -4,6 +4,7 @@ import Foundation
 
 public enum AssistPredictionStrategy: String, Codable, Sendable {
     case ruleV0
+    case retrievalV1
     case modelV1Placeholder
 }
 
@@ -33,6 +34,7 @@ public struct AssistSuggestion: Codable, Equatable, Sendable {
     public let stepId: String
     public let action: AssistSuggestedAction
     public let confidence: Double
+    public let evidence: [AssistPredictionEvidence]
     public let predictorVersion: String
 
     public init(
@@ -42,6 +44,7 @@ public struct AssistSuggestion: Codable, Equatable, Sendable {
         stepId: String,
         action: AssistSuggestedAction,
         confidence: Double,
+        evidence: [AssistPredictionEvidence] = [],
         predictorVersion: String = AssistPredictionStrategy.ruleV0.rawValue
     ) {
         self.suggestionId = suggestionId
@@ -50,6 +53,7 @@ public struct AssistSuggestion: Codable, Equatable, Sendable {
         self.stepId = stepId
         self.action = action
         self.confidence = confidence
+        self.evidence = evidence
         self.predictorVersion = predictorVersion
     }
 }

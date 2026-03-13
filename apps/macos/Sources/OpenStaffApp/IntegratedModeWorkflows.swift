@@ -183,7 +183,7 @@ final class IntegratedModeWorkflowRunner {
         let stateMachine = ModeStateMachine(initialMode: .teaching, logger: InMemoryOrchestratorStateLogger())
         let orchestrator = AssistModeLoopOrchestrator(
             modeStateMachine: stateMachine,
-            predictor: RuleBasedAssistNextActionPredictor(),
+            predictor: RetrievalBasedAssistPredictor(),
             confirmationPrompter: AssistPopupConfirmationPrompter(forcedDecision: true),
             actionExecutor: AssistActionExecutor(),
             logWriter: AssistLoopLogWriter(logsRootDirectory: OpenStaffWorkspacePaths.logsDirectory)
@@ -201,6 +201,8 @@ final class IntegratedModeWorkflowRunner {
             completedStepCount: 0,
             currentAppName: primaryItem.context.appName,
             currentAppBundleId: primaryItem.context.appBundleId,
+            currentWindowTitle: primaryItem.context.windowTitle,
+            currentTaskGoal: primaryItem.goal,
             knowledgeItems: knowledgeItems
         )
         let executionContext = AssistExecutionContext(

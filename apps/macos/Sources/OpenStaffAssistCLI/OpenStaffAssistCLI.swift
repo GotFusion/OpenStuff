@@ -23,7 +23,7 @@ struct OpenStaffAssistCLI {
 
             let modeLogger = StdoutOrchestratorStateLogger()
             let stateMachine = ModeStateMachine(initialMode: options.initialMode, logger: modeLogger)
-            let predictor = RuleBasedAssistNextActionPredictor()
+            let predictor = RetrievalBasedAssistPredictor()
             let prompter = AssistPopupConfirmationPrompter(forcedDecision: options.autoConfirm)
             let executor = AssistActionExecutor()
             let logWriter = AssistLoopLogWriter(logsRootDirectory: options.logsRootDirectoryURL)
@@ -46,6 +46,9 @@ struct OpenStaffAssistCLI {
                 completedStepCount: options.completedStepCount,
                 currentAppName: currentAppName,
                 currentAppBundleId: currentAppBundleId,
+                currentWindowTitle: options.currentWindowTitle ?? primaryItem.context.windowTitle,
+                currentTaskGoal: options.currentTaskGoal ?? primaryItem.goal,
+                recentStepInstructions: options.recentStepInstructions,
                 knowledgeItems: items
             )
 
@@ -87,12 +90,15 @@ struct OpenStaffAssistCLI {
           make assist ARGS="--knowledge-item core/knowledge/examples/knowledge-item.sample.json --auto-confirm yes"
 
         Flags:
-          --knowledge-item <path>            KnowledgeItem JSON path.
+          --knowledge-item <path>            KnowledgeItem JSON path or directory.
           --session-id <id>                  Session ID override. Default: from knowledge item.
           --task-id <id>                     Task ID override. Default: from knowledge item.
           --from <teaching|assist|student>   Initial mode. Default: teaching
           --app-name <name>                  Current app name override.
           --app-bundle-id <bundleId>         Current app bundle ID override.
+          --window-title <title>             Current window title override.
+          --goal <text>                      Current task goal override.
+          --recent-step <instruction>        Recently completed step. Repeat this flag to build a sequence.
           --completed-steps <n>              Already completed step count. Default: 0
           --auto-confirm <yes|no>            Mock popup response from CLI flag.
           --teacher-not-confirmed            Set teacherConfirmed=false for mode transition guard.
@@ -114,7 +120,11 @@ struct OpenStaffAssistCLI {
 
         if let suggestion = result.suggestion {
             print("suggestion=\(suggestion.action.instruction)")
+            print("reason=\(suggestion.action.reason)")
             print("confidence=\(suggestion.confidence)")
+            if !suggestion.evidence.isEmpty {
+                print("evidenceSources=\(suggestion.evidence.map { $0.knowledgeItemId }.joined(separator: ","))")
+            }
         }
         if let confirmation = result.confirmation {
             print("teacherConfirmed=\(confirmation.confirmed)")
@@ -135,6 +145,9 @@ struct AssistCLIOptions {
     let initialMode: OpenStaffMode
     let currentAppName: String?
     let currentAppBundleId: String?
+    let currentWindowTitle: String?
+    let currentTaskGoal: String?
+    let recentStepInstructions: [String]
     let completedStepCount: Int
     let autoConfirm: Bool?
     let teacherConfirmed: Bool
@@ -162,6 +175,9 @@ struct AssistCLIOptions {
         var initialMode: OpenStaffMode = .teaching
         var currentAppName: String?
         var currentAppBundleId: String?
+        var currentWindowTitle: String?
+        var currentTaskGoal: String?
+        var recentStepInstructions: [String] = []
         var completedStepCount = 0
         var autoConfirm: Bool?
         var teacherConfirmed = true
@@ -218,6 +234,24 @@ struct AssistCLIOptions {
                     throw AssistCLIOptionError.missingValue("--app-bundle-id")
                 }
                 currentAppBundleId = arguments[index]
+            case "--window-title":
+                index += 1
+                guard index < arguments.count else {
+                    throw AssistCLIOptionError.missingValue("--window-title")
+                }
+                currentWindowTitle = arguments[index]
+            case "--goal":
+                index += 1
+                guard index < arguments.count else {
+                    throw AssistCLIOptionError.missingValue("--goal")
+                }
+                currentTaskGoal = arguments[index]
+            case "--recent-step":
+                index += 1
+                guard index < arguments.count else {
+                    throw AssistCLIOptionError.missingValue("--recent-step")
+                }
+                recentStepInstructions.append(arguments[index])
             case "--completed-steps":
                 index += 1
                 guard index < arguments.count else {
@@ -308,6 +342,9 @@ struct AssistCLIOptions {
                 initialMode: initialMode,
                 currentAppName: currentAppName,
                 currentAppBundleId: currentAppBundleId,
+                currentWindowTitle: currentWindowTitle,
+                currentTaskGoal: currentTaskGoal,
+                recentStepInstructions: recentStepInstructions,
                 completedStepCount: completedStepCount,
                 autoConfirm: autoConfirm,
                 teacherConfirmed: teacherConfirmed,
@@ -329,6 +366,9 @@ struct AssistCLIOptions {
             initialMode: initialMode,
             currentAppName: currentAppName,
             currentAppBundleId: currentAppBundleId,
+            currentWindowTitle: currentWindowTitle,
+            currentTaskGoal: currentTaskGoal,
+            recentStepInstructions: recentStepInstructions,
             completedStepCount: completedStepCount,
             autoConfirm: autoConfirm,
             teacherConfirmed: teacherConfirmed,
@@ -367,8 +407,64 @@ struct AssistCLIOptions {
 
 struct AssistKnowledgeLoader {
     private let decoder = JSONDecoder()
+    private let fileManager = FileManager.default
 
     func load(from fileURL: URL) throws -> [KnowledgeItem] {
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: fileURL.path, isDirectory: &isDirectory) else {
+            throw AssistKnowledgeLoaderError.readFileFailed(
+                path: fileURL.path,
+                underlying: CocoaError(.fileNoSuchFile)
+            )
+        }
+
+        if isDirectory.boolValue {
+            return try loadDirectory(from: fileURL)
+        }
+
+        return [try loadItem(from: fileURL)]
+    }
+
+    private func loadDirectory(from directoryURL: URL) throws -> [KnowledgeItem] {
+        guard let enumerator = fileManager.enumerator(
+            at: directoryURL,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            throw AssistKnowledgeLoaderError.readFileFailed(
+                path: directoryURL.path,
+                underlying: CocoaError(.fileReadUnknown)
+            )
+        }
+
+        var items: [KnowledgeItem] = []
+        for case let fileURL as URL in enumerator {
+            guard fileURL.pathExtension == "json" else {
+                continue
+            }
+            let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey])
+            guard values?.isRegularFile == true else {
+                continue
+            }
+
+            if let item = try? loadItem(from: fileURL) {
+                items.append(item)
+            }
+        }
+
+        if items.isEmpty {
+            throw AssistKnowledgeLoaderError.directoryContainsNoKnowledge(directoryURL.path)
+        }
+
+        return items.sorted { lhs, rhs in
+            if lhs.createdAt == rhs.createdAt {
+                return lhs.knowledgeItemId < rhs.knowledgeItemId
+            }
+            return lhs.createdAt > rhs.createdAt
+        }
+    }
+
+    private func loadItem(from fileURL: URL) throws -> KnowledgeItem {
         let data: Data
         do {
             data = try Data(contentsOf: fileURL)
@@ -377,8 +473,7 @@ struct AssistKnowledgeLoader {
         }
 
         do {
-            let item = try decoder.decode(KnowledgeItem.self, from: data)
-            return [item]
+            return try decoder.decode(KnowledgeItem.self, from: data)
         } catch {
             throw AssistKnowledgeLoaderError.decodeFailed(path: fileURL.path, underlying: error)
         }
@@ -408,6 +503,7 @@ enum AssistCLIOptionError: LocalizedError {
 enum AssistKnowledgeLoaderError: LocalizedError {
     case readFileFailed(path: String, underlying: Error)
     case decodeFailed(path: String, underlying: Error)
+    case directoryContainsNoKnowledge(String)
 
     var errorDescription: String? {
         switch self {
@@ -415,6 +511,8 @@ enum AssistKnowledgeLoaderError: LocalizedError {
             return "Failed to read knowledge item \(path): \(underlying.localizedDescription)"
         case .decodeFailed(let path, let underlying):
             return "Failed to decode knowledge item \(path): \(underlying.localizedDescription)"
+        case .directoryContainsNoKnowledge(let path):
+            return "Directory \(path) does not contain any decodable knowledge items."
         }
     }
 }

@@ -10,6 +10,9 @@ public struct AssistLoopInput {
     public let completedStepCount: Int
     public let currentAppName: String?
     public let currentAppBundleId: String?
+    public let currentWindowTitle: String?
+    public let currentTaskGoal: String?
+    public let recentStepInstructions: [String]
     public let knowledgeItems: [KnowledgeItem]
 
     public init(
@@ -22,6 +25,9 @@ public struct AssistLoopInput {
         completedStepCount: Int,
         currentAppName: String?,
         currentAppBundleId: String?,
+        currentWindowTitle: String? = nil,
+        currentTaskGoal: String? = nil,
+        recentStepInstructions: [String] = [],
         knowledgeItems: [KnowledgeItem]
     ) {
         self.traceId = traceId
@@ -33,25 +39,9 @@ public struct AssistLoopInput {
         self.completedStepCount = max(0, completedStepCount)
         self.currentAppName = currentAppName
         self.currentAppBundleId = currentAppBundleId
-        self.knowledgeItems = knowledgeItems
-    }
-}
-
-public struct AssistPredictionInput {
-    public let completedStepCount: Int
-    public let currentAppName: String?
-    public let currentAppBundleId: String?
-    public let knowledgeItems: [KnowledgeItem]
-
-    public init(
-        completedStepCount: Int,
-        currentAppName: String?,
-        currentAppBundleId: String?,
-        knowledgeItems: [KnowledgeItem]
-    ) {
-        self.completedStepCount = completedStepCount
-        self.currentAppName = currentAppName
-        self.currentAppBundleId = currentAppBundleId
+        self.currentWindowTitle = currentWindowTitle
+        self.currentTaskGoal = currentTaskGoal
+        self.recentStepInstructions = recentStepInstructions
         self.knowledgeItems = knowledgeItems
     }
 }
@@ -161,6 +151,10 @@ public struct AssistPopupConfirmationPrompter: AssistConfirmationPrompting {
 
         if let forcedDecision {
             print("Assist Popup (mock): \(suggestion.action.instruction)")
+            print("推荐依据：\(suggestion.action.reason)")
+            if !suggestion.evidence.isEmpty {
+                print("历史来源：\(suggestion.evidence.map(\.knowledgeItemId).joined(separator: ", "))")
+            }
             print("Teacher response from CLI flag: \(forcedDecision ? "confirm" : "reject")")
             return AssistConfirmationDecision(
                 confirmed: forcedDecision,
@@ -171,6 +165,10 @@ public struct AssistPopupConfirmationPrompter: AssistConfirmationPrompting {
 
         print("Assist Popup (mock):")
         print("预测下一步：\(suggestion.action.instruction)")
+        print("推荐依据：\(suggestion.action.reason)")
+        if !suggestion.evidence.isEmpty {
+            print("历史来源：\(suggestion.evidence.map(\.knowledgeItemId).joined(separator: ", "))")
+        }
         print("是否确认执行？输入 y/yes 确认，其他输入拒绝。")
         let raw = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
         let confirmed = raw == "y" || raw == "yes"
@@ -280,6 +278,9 @@ public final class AssistModeLoopOrchestrator {
                 completedStepCount: input.completedStepCount,
                 currentAppName: input.currentAppName,
                 currentAppBundleId: input.currentAppBundleId,
+                currentWindowTitle: input.currentWindowTitle,
+                currentTaskGoal: input.currentTaskGoal,
+                recentStepInstructions: input.recentStepInstructions,
                 knowledgeItems: input.knowledgeItems
             )
         )
@@ -289,7 +290,7 @@ public final class AssistModeLoopOrchestrator {
                 input: input,
                 status: AssistLoopStatusCode.predicted.rawValue,
                 errorCode: AssistLoopErrorCode.predictionNotFound.rawValue,
-                message: "No next action was predicted by rule strategy.",
+                message: "No next action was predicted from historical knowledge.",
                 suggestion: nil
             )
 
@@ -306,7 +307,7 @@ public final class AssistModeLoopOrchestrator {
         latestLogFile = try appendLog(
             input: input,
             status: AssistLoopStatusCode.predicted.rawValue,
-            message: "Predicted next action by rule strategy.",
+            message: "Predicted next action by \(suggestion.predictorVersion).",
             suggestion: suggestion
         )
 

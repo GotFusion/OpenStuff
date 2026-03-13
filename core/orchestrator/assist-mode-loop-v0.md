@@ -1,5 +1,7 @@
 # OpenStaff 辅助模式闭环 v0（Phase 4.2）
 
+> 注：Phase 9.1 已在 `assist-knowledge-retrieval-v1.md` 上补充“基于历史知识检索的下一步预测”。本文保留最小闭环设计背景。
+
 ## 1. 目标
 
 实现辅助模式最小可演示闭环：
