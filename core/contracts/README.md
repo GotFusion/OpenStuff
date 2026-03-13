@@ -11,6 +11,7 @@ Shared contracts for cross-module communication.
 ## Current Contracts
 
 - `CaptureEventContracts.swift`: `RawEvent`, `ContextSnapshot`, `NormalizedEvent`.
+- `SemanticTargetContracts.swift`: `SemanticTarget`, `SemanticBoundingRect`, locator/source enums.
 - `KnowledgeTaskContracts.swift`: `TaskChunk`, `TaskBoundaryReason`, `TaskSlicingPolicy`.
 - `KnowledgeItemContracts.swift`: `KnowledgeItem`, `KnowledgeStep`, `KnowledgeContext`, `KnowledgeConstraint`, `KnowledgeSource`.
 - `OrchestratorContracts.swift`: `OpenStaffMode`, `ModeTransitionContext`, `ModeTransitionDecision`, `OrchestratorLogEntry`.

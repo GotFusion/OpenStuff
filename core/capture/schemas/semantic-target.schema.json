@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openstaff.local/schemas/capture/semantic-target.schema.json",
+  "title": "SemanticTarget",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "locatorType",
+    "appBundleId",
+    "confidence",
+    "source"
+  ],
+  "properties": {
+    "locatorType": {
+      "type": "string",
+      "enum": [
+        "axPath",
+        "roleAndTitle",
+        "textAnchor",
+        "imageAnchor",
+        "coordinateFallback"
+      ]
+    },
+    "appBundleId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "windowTitlePattern": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "elementRole": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "elementTitle": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "elementIdentifier": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "boundingRect": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/boundingRect"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "capture",
+        "inferred",
+        "repaired"
+      ]
+    }
+  },
+  "$defs": {
+    "boundingRect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height",
+        "coordinateSpace"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 0
+        },
+        "height": {
+          "type": "number",
+          "minimum": 0
+        },
+        "coordinateSpace": {
+          "type": "string",
+          "enum": [
+            "screen"
+          ]
+        }
+      }
+    }
+  }
+}

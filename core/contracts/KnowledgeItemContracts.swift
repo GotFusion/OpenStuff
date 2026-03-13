@@ -49,11 +49,47 @@ public struct KnowledgeStep: Codable, Equatable {
     public let stepId: String
     public let instruction: String
     public let sourceEventIds: [String]
+    public let target: KnowledgeStepTarget?
 
-    public init(stepId: String, instruction: String, sourceEventIds: [String]) {
+    public init(
+        stepId: String,
+        instruction: String,
+        sourceEventIds: [String],
+        target: KnowledgeStepTarget? = nil
+    ) {
         self.stepId = stepId
         self.instruction = instruction
         self.sourceEventIds = sourceEventIds
+        self.target = target
+    }
+}
+
+public struct KnowledgeStepTarget: Codable, Equatable {
+    public let coordinate: PointerLocation?
+    public let semanticTargets: [SemanticTarget]
+    public let preferredLocatorType: SemanticLocatorType?
+
+    private enum CodingKeys: String, CodingKey {
+        case coordinate
+        case semanticTargets
+        case preferredLocatorType
+    }
+
+    public init(
+        coordinate: PointerLocation? = nil,
+        semanticTargets: [SemanticTarget] = [],
+        preferredLocatorType: SemanticLocatorType? = nil
+    ) {
+        self.coordinate = coordinate
+        self.semanticTargets = semanticTargets
+        self.preferredLocatorType = preferredLocatorType
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.coordinate = try container.decodeIfPresent(PointerLocation.self, forKey: .coordinate)
+        self.semanticTargets = try container.decodeIfPresent([SemanticTarget].self, forKey: .semanticTargets) ?? []
+        self.preferredLocatorType = try container.decodeIfPresent(SemanticLocatorType.self, forKey: .preferredLocatorType)
     }
 }
 

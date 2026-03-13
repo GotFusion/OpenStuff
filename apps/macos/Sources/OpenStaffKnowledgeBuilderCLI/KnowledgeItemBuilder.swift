@@ -219,10 +219,21 @@ struct KnowledgeItemBuilder {
             actionText = "键盘操作"
         }
 
+        let semanticTarget = SemanticTarget.coordinateFallback(
+            appBundleId: event.contextSnapshot.appBundleId,
+            windowTitle: event.contextSnapshot.windowTitle,
+            coordinate: event.pointer
+        )
+
         return KnowledgeStep(
             stepId: stepId,
             instruction: "执行第 \(stepNumber) 步\(actionText)操作（x=\(event.pointer.x), y=\(event.pointer.y)，源事件 \(event.eventId)）。",
-            sourceEventIds: [event.eventId]
+            sourceEventIds: [event.eventId],
+            target: KnowledgeStepTarget(
+                coordinate: event.pointer,
+                semanticTargets: [semanticTarget],
+                preferredLocatorType: semanticTarget.locatorType
+            )
         )
     }
 

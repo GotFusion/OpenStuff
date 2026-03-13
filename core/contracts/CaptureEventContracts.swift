@@ -172,10 +172,34 @@ public enum NormalizedEventType: String, Codable {
 public struct EventTarget: Codable, Equatable {
     public let kind: EventTargetKind
     public let coordinate: PointerLocation
+    public let semanticTargets: [SemanticTarget]
+    public let preferredLocatorType: SemanticLocatorType?
 
-    public init(kind: EventTargetKind = .coordinate, coordinate: PointerLocation) {
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case coordinate
+        case semanticTargets
+        case preferredLocatorType
+    }
+
+    public init(
+        kind: EventTargetKind = .coordinate,
+        coordinate: PointerLocation,
+        semanticTargets: [SemanticTarget] = [],
+        preferredLocatorType: SemanticLocatorType? = nil
+    ) {
         self.kind = kind
         self.coordinate = coordinate
+        self.semanticTargets = semanticTargets
+        self.preferredLocatorType = preferredLocatorType
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.kind = try container.decode(EventTargetKind.self, forKey: .kind)
+        self.coordinate = try container.decode(PointerLocation.self, forKey: .coordinate)
+        self.semanticTargets = try container.decodeIfPresent([SemanticTarget].self, forKey: .semanticTargets) ?? []
+        self.preferredLocatorType = try container.decodeIfPresent(SemanticLocatorType.self, forKey: .preferredLocatorType)
     }
 }
 

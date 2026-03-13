@@ -16,7 +16,8 @@ RawEvent
 
 NormalizedEvent
   ├── sourceEventId -> RawEvent.eventId
-  └── contextSnapshot: ContextSnapshot
+  ├── contextSnapshot: ContextSnapshot
+  └── target.semanticTargets[]: SemanticTarget
 ```
 
 ## 3. RawEvent（原始事件）
@@ -53,7 +54,7 @@ NormalizedEvent
 | sessionId | string | 是 | 会话 ID |
 | timestamp | string | 是 | 标准化时间戳 |
 | eventType | enum | 是 | 当前固定 `click` |
-| target | object | 是 | 当前以坐标作为目标 |
+| target | object | 是 | 保留坐标并可附带多候选 `SemanticTarget` |
 | contextSnapshot | ContextSnapshot | 是 | 标准化后上下文 |
 | confidence | number | 是 | 归一化置信度（0 ~ 1） |
 | normalizerVersion | string | 是 | 归一化规则版本（如 `rule-v0`） |
@@ -64,9 +65,14 @@ NormalizedEvent
 - `sessionId` 在同一会话内不变。
 - `timestamp` 必须带时区偏移。
 - `contextSnapshot.appName` 和 `contextSnapshot.appBundleId` 必须同时存在。
+- 新写入的点击 `NormalizedEvent` 应同时保留：
+  - `target.coordinate`
+  - 至少一个 `target.semanticTargets[]`
+- 旧 `capture.normalized.v0` 数据允许缺省 `semanticTargets`，读取时按空数组兼容。
 
 ## 7. 文件位置
 
 - Swift 类型定义：`core/contracts/CaptureEventContracts.swift`
+- 语义定位说明：`core/capture/semantic-target-v0.md`
 - JSON Schema：`core/capture/schemas/*.schema.json`
 - 示例数据：`core/capture/examples/*.jsonl`

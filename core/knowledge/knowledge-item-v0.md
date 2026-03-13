@@ -37,6 +37,8 @@
 1. `knowledgeItemId = "ki-{taskId}"`
 2. `goal`：基于主上下文生成（例如“在 Safari 中复现任务 task-xxx”）
 3. `steps`：按 `eventIds` 顺序生成步骤；每步保留 `sourceEventIds`
+   - 点击步骤额外保留 `target.coordinate`
+   - 点击步骤额外保留 `target.semanticTargets[]`
 4. `summary`：使用规则摘要器将步骤压缩为可读链路（如 `点击 -> 点击`），附带上下文和切分原因。
 5. `context`：来自 `TaskChunk.primaryContext`
 6. `constraints`（v0 固定三条）
@@ -55,3 +57,4 @@
 - JSON Schema：`core/knowledge/schemas/knowledge-item.schema.json`
 - 示例文件：`core/knowledge/examples/knowledge-item.sample.json`
 - 摘要规则：`core/knowledge/summary-generator-v0.md`
+- 语义定位规则：`core/capture/semantic-target-v0.md`

@@ -63,6 +63,53 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "target": {
+            "type": "object",
+            "required": ["semanticTargets"],
+            "properties": {
+              "coordinate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "x",
+                  "y",
+                  "coordinateSpace"
+                ],
+                "properties": {
+                  "x": {
+                    "type": "integer"
+                  },
+                  "y": {
+                    "type": "integer"
+                  },
+                  "coordinateSpace": {
+                    "type": "string",
+                    "enum": [
+                      "screen"
+                    ]
+                  }
+                }
+              },
+              "semanticTargets": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "../../capture/schemas/semantic-target.schema.json"
+                }
+              },
+              "preferredLocatorType": {
+                "type": "string",
+                "enum": [
+                  "axPath",
+                  "roleAndTitle",
+                  "textAnchor",
+                  "imageAnchor",
+                  "coordinateFallback"
+                ]
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
