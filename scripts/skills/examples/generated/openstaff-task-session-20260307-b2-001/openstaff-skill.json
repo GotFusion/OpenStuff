@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "openstaff.openclaw-skill.v0",
+  "schemaVersion": "openstaff.openclaw-skill.v1",
   "skillName": "openstaff-task-session-20260307-b2-001",
   "knowledgeItemId": "ki-task-session-20260307-b2-001",
   "taskId": "task-session-20260307-b2-001",
@@ -7,6 +7,66 @@
   "source": {
     "knowledgeItemPath": "scripts/skills/examples/knowledge-item.sample.finder.json",
     "llmOutputPath": "scripts/skills/examples/llm-output.sample.finder.json"
+  },
+  "provenance": {
+    "knowledge": {
+      "knowledgeItemId": "ki-task-session-20260307-b2-001",
+      "knowledgeSchemaVersion": "knowledge.item.v0",
+      "taskId": "task-session-20260307-b2-001",
+      "sessionId": "session-20260307-b2",
+      "knowledgeCreatedAt": "2026-03-07T16:20:00+08:00",
+      "knowledgeGeneratorVersion": "rule-v0"
+    },
+    "sourceTrace": {
+      "taskChunkSchemaVersion": "knowledge.task-chunk.v0",
+      "startTimestamp": "2026-03-07T16:10:11+08:00",
+      "endTimestamp": "2026-03-07T16:10:25+08:00",
+      "eventCount": 3,
+      "boundaryReason": "contextSwitch"
+    },
+    "skillBuild": {
+      "skillName": "openstaff-task-session-20260307-b2-001",
+      "skillSchemaVersion": "openstaff.openclaw-skill.v1",
+      "skillGeneratorVersion": "openstaff-skill-mapper-v1",
+      "generatedAt": "2026-03-13T12:07:15+08:00",
+      "repairVersion": 0,
+      "llmOutputAccepted": true
+    },
+    "stepMappings": [
+      {
+        "skillStepId": "step-001",
+        "knowledgeStepId": "step-001",
+        "instruction": "点击 Finder 侧边栏中的 Documents。",
+        "sourceEventIds": [
+          "33333333-3333-4333-8333-333333333333"
+        ],
+        "preferredLocatorType": null,
+        "coordinate": null,
+        "semanticTargets": []
+      },
+      {
+        "skillStepId": "step-002",
+        "knowledgeStepId": "step-002",
+        "instruction": "使用快捷键 Command+Shift+N 创建新文件夹。",
+        "sourceEventIds": [
+          "44444444-4444-4444-8444-444444444444"
+        ],
+        "preferredLocatorType": null,
+        "coordinate": null,
+        "semanticTargets": []
+      },
+      {
+        "skillStepId": "step-003",
+        "knowledgeStepId": "step-003",
+        "instruction": "输入文件夹名称 OpenStaff-Workspace 并回车。",
+        "sourceEventIds": [
+          "55555555-5555-4555-8555-555555555555"
+        ],
+        "preferredLocatorType": null,
+        "coordinate": null,
+        "semanticTargets": []
+      }
+    ]
   },
   "mappedOutput": {
     "objective": "在 Finder 中创建并重命名项目文件夹",
@@ -65,6 +125,6 @@
   },
   "diagnostics": [],
   "llmOutputAccepted": true,
-  "createdAt": "2026-03-08T00:08:59+08:00",
-  "generatorVersion": "openstaff-skill-mapper-v0"
+  "createdAt": "2026-03-13T12:07:15+08:00",
+  "generatorVersion": "openstaff-skill-mapper-v1"
 }

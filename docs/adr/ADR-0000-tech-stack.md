@@ -61,5 +61,5 @@ make dev
 
 - `ADR-0001-event-schema.md`
 - `ADR-0002-storage-strategy.md`
-- `ADR-0003-openclaw-integration.md`
 - `ADR-0004-execution-safety.md`
+- `ADR-0007-openclaw-companion-boundary.md`

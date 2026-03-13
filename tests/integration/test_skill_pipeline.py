@@ -42,6 +42,9 @@ class SkillPipelineIntegrationTests(unittest.TestCase):
             skill_dir = skills_root / "openstaff-task-session-20260307-a1-001"
             self.assertTrue((skill_dir / "SKILL.md").exists())
             self.assertTrue((skill_dir / "openstaff-skill.json").exists())
+            mapping = json.loads((skill_dir / "openstaff-skill.json").read_text(encoding="utf-8"))
+            self.assertEqual(mapping["schemaVersion"], "openstaff.openclaw-skill.v1")
+            self.assertEqual(mapping["provenance"]["knowledge"]["taskId"], mapping["taskId"])
 
             validator = self.run_cmd([sys.executable, str(VALIDATOR), "--skill-dir", str(skill_dir)])
             self.assertEqual(validator.returncode, 0, msg=validator.stderr or validator.stdout)
@@ -68,6 +71,8 @@ class SkillPipelineIntegrationTests(unittest.TestCase):
             mapping = json.loads((skill_dir / "openstaff-skill.json").read_text(encoding="utf-8"))
             self.assertFalse(mapping["llmOutputAccepted"])
             self.assertGreater(len(mapping["diagnostics"]), 0)
+            self.assertEqual(mapping["schemaVersion"], "openstaff.openclaw-skill.v1")
+            self.assertEqual(mapping["provenance"]["skillBuild"]["repairVersion"], 0)
 
             validator = self.run_cmd([sys.executable, str(VALIDATOR), "--skill-dir", str(skill_dir)])
             self.assertEqual(validator.returncode, 0, msg=validator.stderr or validator.stdout)

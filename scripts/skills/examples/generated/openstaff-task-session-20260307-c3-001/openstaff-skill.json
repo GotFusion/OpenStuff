@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "openstaff.openclaw-skill.v0",
+  "schemaVersion": "openstaff.openclaw-skill.v1",
   "skillName": "openstaff-task-session-20260307-c3-001",
   "knowledgeItemId": "ki-task-session-20260307-c3-001",
   "taskId": "task-session-20260307-c3-001",
@@ -7,6 +7,55 @@
   "source": {
     "knowledgeItemPath": "scripts/skills/examples/knowledge-item.sample.terminal.json",
     "llmOutputPath": "scripts/skills/examples/llm-output.sample.terminal-invalid.txt"
+  },
+  "provenance": {
+    "knowledge": {
+      "knowledgeItemId": "ki-task-session-20260307-c3-001",
+      "knowledgeSchemaVersion": "knowledge.item.v0",
+      "taskId": "task-session-20260307-c3-001",
+      "sessionId": "session-20260307-c3",
+      "knowledgeCreatedAt": "2026-03-07T18:40:00+08:00",
+      "knowledgeGeneratorVersion": "rule-v0"
+    },
+    "sourceTrace": {
+      "taskChunkSchemaVersion": "knowledge.task-chunk.v0",
+      "startTimestamp": "2026-03-07T18:32:01+08:00",
+      "endTimestamp": "2026-03-07T18:32:21+08:00",
+      "eventCount": 2,
+      "boundaryReason": "sessionEnd"
+    },
+    "skillBuild": {
+      "skillName": "openstaff-task-session-20260307-c3-001",
+      "skillSchemaVersion": "openstaff.openclaw-skill.v1",
+      "skillGeneratorVersion": "openstaff-skill-mapper-v1",
+      "generatedAt": "2026-03-13T12:07:15+08:00",
+      "repairVersion": 0,
+      "llmOutputAccepted": false
+    },
+    "stepMappings": [
+      {
+        "skillStepId": "step-001",
+        "knowledgeStepId": "step-001",
+        "instruction": "输入命令 mkdir -p ~/Desktop/OpenStaffLogs。",
+        "sourceEventIds": [
+          "66666666-6666-4666-8666-666666666666"
+        ],
+        "preferredLocatorType": null,
+        "coordinate": null,
+        "semanticTargets": []
+      },
+      {
+        "skillStepId": "step-002",
+        "knowledgeStepId": "step-002",
+        "instruction": "输入命令 pwd 并回车。",
+        "sourceEventIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "preferredLocatorType": null,
+        "coordinate": null,
+        "semanticTargets": []
+      }
+    ]
   },
   "mappedOutput": {
     "objective": "在 Terminal 中创建日志目录并查看当前路径",
@@ -63,6 +112,6 @@
     "Fallback objective from KnowledgeItem.goal."
   ],
   "llmOutputAccepted": false,
-  "createdAt": "2026-03-08T00:08:59+08:00",
-  "generatorVersion": "openstaff-skill-mapper-v0"
+  "createdAt": "2026-03-13T12:07:15+08:00",
+  "generatorVersion": "openstaff-skill-mapper-v1"
 }

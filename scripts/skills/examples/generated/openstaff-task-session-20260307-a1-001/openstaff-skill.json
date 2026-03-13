@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "openstaff.openclaw-skill.v0",
+  "schemaVersion": "openstaff.openclaw-skill.v1",
   "skillName": "openstaff-task-session-20260307-a1-001",
   "knowledgeItemId": "ki-task-session-20260307-a1-001",
   "taskId": "task-session-20260307-a1-001",
@@ -7,6 +7,127 @@
   "source": {
     "knowledgeItemPath": "core/knowledge/examples/knowledge-item.sample.json",
     "llmOutputPath": "scripts/llm/examples/knowledge-parse-output.sample.json"
+  },
+  "provenance": {
+    "knowledge": {
+      "knowledgeItemId": "ki-task-session-20260307-a1-001",
+      "knowledgeSchemaVersion": "knowledge.item.v0",
+      "taskId": "task-session-20260307-a1-001",
+      "sessionId": "session-20260307-a1",
+      "knowledgeCreatedAt": "2026-03-07T14:20:00+08:00",
+      "knowledgeGeneratorVersion": "rule-v0"
+    },
+    "sourceTrace": {
+      "taskChunkSchemaVersion": "knowledge.task-chunk.v0",
+      "startTimestamp": "2026-03-07T14:12:23+08:00",
+      "endTimestamp": "2026-03-07T14:12:25+08:00",
+      "eventCount": 2,
+      "boundaryReason": "idleGap"
+    },
+    "skillBuild": {
+      "skillName": "openstaff-task-session-20260307-a1-001",
+      "skillSchemaVersion": "openstaff.openclaw-skill.v1",
+      "skillGeneratorVersion": "openstaff-skill-mapper-v1",
+      "generatedAt": "2026-03-13T12:07:15+08:00",
+      "repairVersion": 0,
+      "llmOutputAccepted": true
+    },
+    "stepMappings": [
+      {
+        "skillStepId": "step-001",
+        "knowledgeStepId": "step-001",
+        "instruction": "执行第 1 步点击操作（x=842, y=516，源事件 11111111-1111-4111-8111-111111111111）。",
+        "sourceEventIds": [
+          "11111111-1111-4111-8111-111111111111"
+        ],
+        "preferredLocatorType": "roleAndTitle",
+        "coordinate": {
+          "x": 842,
+          "y": 516,
+          "coordinateSpace": "screen"
+        },
+        "semanticTargets": [
+          {
+            "locatorType": "roleAndTitle",
+            "appBundleId": "com.apple.Safari",
+            "windowTitlePattern": "^OpenStaff\\ - GitHub$",
+            "elementRole": "AXButton",
+            "elementTitle": "Pull requests",
+            "elementIdentifier": "unified-tab-bar.pull-requests",
+            "boundingRect": {
+              "x": 820,
+              "y": 498,
+              "width": 110,
+              "height": 36,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.68,
+            "source": "capture"
+          },
+          {
+            "locatorType": "coordinateFallback",
+            "appBundleId": "com.apple.Safari",
+            "windowTitlePattern": "^OpenStaff\\ - GitHub$",
+            "boundingRect": {
+              "x": 842,
+              "y": 516,
+              "width": 1,
+              "height": 1,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.24,
+            "source": "capture"
+          }
+        ]
+      },
+      {
+        "skillStepId": "step-002",
+        "knowledgeStepId": "step-002",
+        "instruction": "执行第 2 步点击操作（x=911, y=601，源事件 22222222-2222-4222-8222-222222222222）。",
+        "sourceEventIds": [
+          "22222222-2222-4222-8222-222222222222"
+        ],
+        "preferredLocatorType": "roleAndTitle",
+        "coordinate": {
+          "x": 911,
+          "y": 601,
+          "coordinateSpace": "screen"
+        },
+        "semanticTargets": [
+          {
+            "locatorType": "roleAndTitle",
+            "appBundleId": "com.apple.Safari",
+            "windowTitlePattern": "^OpenStaff\\ - GitHub$",
+            "elementRole": "AXLink",
+            "elementTitle": "Issues",
+            "elementIdentifier": "repo-nav.issues",
+            "boundingRect": {
+              "x": 888,
+              "y": 582,
+              "width": 74,
+              "height": 30,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.68,
+            "source": "capture"
+          },
+          {
+            "locatorType": "coordinateFallback",
+            "appBundleId": "com.apple.Safari",
+            "windowTitlePattern": "^OpenStaff\\ - GitHub$",
+            "boundingRect": {
+              "x": 911,
+              "y": 601,
+              "width": 1,
+              "height": 1,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.24,
+            "source": "capture"
+          }
+        ]
+      }
+    ]
   },
   "mappedOutput": {
     "objective": "在 Safari 中复现任务 task-session-20260307-a1-001 的操作流程",
@@ -56,6 +177,6 @@
   },
   "diagnostics": [],
   "llmOutputAccepted": true,
-  "createdAt": "2026-03-08T00:08:59+08:00",
-  "generatorVersion": "openstaff-skill-mapper-v0"
+  "createdAt": "2026-03-13T12:07:15+08:00",
+  "generatorVersion": "openstaff-skill-mapper-v1"
 }

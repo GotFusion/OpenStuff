@@ -38,11 +38,21 @@ class ValidateOpenClawSkillTests(unittest.TestCase):
         )
         assert diagnostics == []
 
+        cls.created_at = cls.mapper.iso_now()
+        cls.provenance = cls.mapper.build_provenance(
+            skill_name=cls.mapper.sanitize_skill_name(cls.knowledge_item["taskId"]),
+            knowledge_item=cls.knowledge_item,
+            mapped=cls.normalized,
+            created_at=cls.created_at,
+            llm_output_accepted=True,
+        )
+
         cls.skill_name = cls.mapper.sanitize_skill_name(cls.knowledge_item["taskId"])
         cls.skill_md = cls.mapper.render_skill_markdown(
             cls.skill_name,
             cls.normalized,
             cls.knowledge_item,
+            cls.provenance,
         )
         cls.frontmatter, cls.md_errors = cls.validator.validate_skill_markdown(cls.skill_md)
         assert cls.md_errors == []
@@ -59,20 +69,46 @@ class ValidateOpenClawSkillTests(unittest.TestCase):
 
     def test_validate_mapping_json_rejects_skill_name_mismatch(self):
         mapping = {
-            "schemaVersion": "openstaff.openclaw-skill.v0",
+            "schemaVersion": self.mapper.SCHEMA_VERSION,
             "skillName": self.skill_name,
             "knowledgeItemId": self.knowledge_item["knowledgeItemId"],
             "taskId": self.knowledge_item["taskId"],
             "sessionId": self.knowledge_item["sessionId"],
+            "source": {
+                "knowledgeItemPath": "core/knowledge/examples/knowledge-item.sample.json",
+                "llmOutputPath": "scripts/llm/examples/knowledge-parse-output.sample.json",
+            },
+            "provenance": self.provenance,
             "mappedOutput": self.normalized,
-            "createdAt": self.mapper.iso_now(),
-            "generatorVersion": "openstaff-skill-mapper-v0",
+            "llmOutputAccepted": True,
+            "createdAt": self.created_at,
+            "generatorVersion": self.mapper.GENERATOR_VERSION,
         }
 
         wrong_frontmatter = copy.deepcopy(self.frontmatter)
         wrong_frontmatter["name"] = "unexpected-name"
         errors = self.validator.validate_mapping_json(mapping, wrong_frontmatter)
         self.assertTrue(any("Frontmatter name must match" in err for err in errors))
+
+    def test_validate_mapping_json_requires_provenance_for_v1(self):
+        mapping = {
+            "schemaVersion": self.mapper.SCHEMA_VERSION,
+            "skillName": self.skill_name,
+            "knowledgeItemId": self.knowledge_item["knowledgeItemId"],
+            "taskId": self.knowledge_item["taskId"],
+            "sessionId": self.knowledge_item["sessionId"],
+            "source": {
+                "knowledgeItemPath": "core/knowledge/examples/knowledge-item.sample.json",
+                "llmOutputPath": "scripts/llm/examples/knowledge-parse-output.sample.json",
+            },
+            "mappedOutput": self.normalized,
+            "llmOutputAccepted": True,
+            "createdAt": self.created_at,
+            "generatorVersion": self.mapper.GENERATOR_VERSION,
+        }
+
+        errors = self.validator.validate_mapping_json(mapping, self.frontmatter)
+        self.assertTrue(any("provenance" in err for err in errors))
 
     def test_parse_frontmatter_rejects_missing_closing_delimiter(self):
         markdown = "---\nname: a\ndescription: b\n"

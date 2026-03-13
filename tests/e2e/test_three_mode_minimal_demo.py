@@ -49,19 +49,33 @@ class ThreeModeMinimalE2ETests(unittest.TestCase):
 
         # Student mode: render skill artifact and validate structural integrity.
         skill_name = self.mapper.sanitize_skill_name(self.knowledge_item["taskId"])
-        skill_md = self.mapper.render_skill_markdown(skill_name, mapped, self.knowledge_item)
+        created_at = self.mapper.iso_now()
+        provenance = self.mapper.build_provenance(
+            skill_name=skill_name,
+            knowledge_item=self.knowledge_item,
+            mapped=mapped,
+            created_at=created_at,
+            llm_output_accepted=True,
+        )
+        skill_md = self.mapper.render_skill_markdown(skill_name, mapped, self.knowledge_item, provenance)
         frontmatter, md_errors = self.skill_validate.validate_skill_markdown(skill_md)
         self.assertEqual(md_errors, [], msg="; ".join(md_errors))
 
         mapping_payload = {
-            "schemaVersion": "openstaff.openclaw-skill.v0",
+            "schemaVersion": self.mapper.SCHEMA_VERSION,
             "skillName": skill_name,
             "knowledgeItemId": self.knowledge_item["knowledgeItemId"],
             "taskId": self.knowledge_item["taskId"],
             "sessionId": self.knowledge_item["sessionId"],
+            "source": {
+                "knowledgeItemPath": "core/knowledge/examples/knowledge-item.sample.json",
+                "llmOutputPath": "scripts/llm/examples/knowledge-parse-output.sample.json",
+            },
+            "provenance": provenance,
             "mappedOutput": mapped,
-            "createdAt": self.mapper.iso_now(),
-            "generatorVersion": "openstaff-skill-mapper-v0",
+            "llmOutputAccepted": True,
+            "createdAt": created_at,
+            "generatorVersion": self.mapper.GENERATOR_VERSION,
         }
         json_errors = self.skill_validate.validate_mapping_json(mapping_payload, frontmatter)
         self.assertEqual(json_errors, [], msg="; ".join(json_errors))

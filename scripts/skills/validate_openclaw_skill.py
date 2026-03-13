@@ -14,6 +14,8 @@ from typing import Any
 
 
 REQUIRED_FRONTMATTER_KEYS = {"name", "description"}
+CURRENT_SCHEMA_VERSION = "openstaff.openclaw-skill.v1"
+SUPPORTED_SCHEMA_VERSIONS = {"openstaff.openclaw-skill.v0", CURRENT_SCHEMA_VERSION}
 
 
 def read_text(path: Path) -> str:
@@ -110,7 +112,9 @@ def validate_mapping_json(mapping: Any, frontmatter: dict[str, str]) -> list[str
         "knowledgeItemId",
         "taskId",
         "sessionId",
+        "source",
         "mappedOutput",
+        "llmOutputAccepted",
         "createdAt",
         "generatorVersion",
     ]
@@ -118,11 +122,26 @@ def validate_mapping_json(mapping: Any, frontmatter: dict[str, str]) -> list[str
         if key not in mapping:
             errors.append(f"openstaff-skill.json missing required key: {key}")
 
-    if mapping.get("schemaVersion") != "openstaff.openclaw-skill.v0":
-        errors.append("openstaff-skill.json schemaVersion must equal 'openstaff.openclaw-skill.v0'.")
+    schema_version = mapping.get("schemaVersion")
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        errors.append(
+            "openstaff-skill.json schemaVersion must be one of "
+            f"{', '.join(sorted(SUPPORTED_SCHEMA_VERSIONS))}."
+        )
 
     if "skillName" in mapping and frontmatter.get("name") != mapping.get("skillName"):
         errors.append("Frontmatter name must match openstaff-skill.json skillName.")
+
+    source = mapping.get("source")
+    if not isinstance(source, dict):
+        errors.append("source must be an object.")
+    else:
+        for key in ["knowledgeItemPath", "llmOutputPath"]:
+            if not isinstance(source.get(key), str) or not source[key].strip():
+                errors.append(f"source.{key} must be a non-empty string.")
+
+    if not isinstance(mapping.get("llmOutputAccepted"), bool):
+        errors.append("llmOutputAccepted must be a boolean.")
 
     mapped_output = mapping.get("mappedOutput")
     if not isinstance(mapped_output, dict):
@@ -176,6 +195,137 @@ def validate_mapping_json(mapping: Any, frontmatter: dict[str, str]) -> list[str
     confidence = mapped_output.get("confidence")
     if not isinstance(confidence, (int, float)) or confidence < 0 or confidence > 1:
         errors.append("mappedOutput.confidence must be in [0, 1].")
+
+    if schema_version == CURRENT_SCHEMA_VERSION:
+        provenance = mapping.get("provenance")
+        if not isinstance(provenance, dict):
+            errors.append("openstaff-skill.json provenance must be an object for v1 artifacts.")
+            return errors
+
+        knowledge = provenance.get("knowledge")
+        if not isinstance(knowledge, dict):
+            errors.append("provenance.knowledge must be an object.")
+        else:
+            if knowledge.get("knowledgeItemId") != mapping.get("knowledgeItemId"):
+                errors.append("provenance.knowledge.knowledgeItemId must match top-level knowledgeItemId.")
+            if knowledge.get("taskId") != mapping.get("taskId"):
+                errors.append("provenance.knowledge.taskId must match top-level taskId.")
+            if knowledge.get("sessionId") != mapping.get("sessionId"):
+                errors.append("provenance.knowledge.sessionId must match top-level sessionId.")
+            for key in [
+                "knowledgeSchemaVersion",
+                "knowledgeCreatedAt",
+                "knowledgeGeneratorVersion",
+            ]:
+                if not isinstance(knowledge.get(key), str) or not knowledge[key].strip():
+                    errors.append(f"provenance.knowledge.{key} must be a non-empty string.")
+
+        source_trace = provenance.get("sourceTrace")
+        if not isinstance(source_trace, dict):
+            errors.append("provenance.sourceTrace must be an object.")
+        else:
+            for key in ["taskChunkSchemaVersion", "startTimestamp", "endTimestamp", "boundaryReason"]:
+                if not isinstance(source_trace.get(key), str) or not source_trace[key].strip():
+                    errors.append(f"provenance.sourceTrace.{key} must be a non-empty string.")
+            if not isinstance(source_trace.get("eventCount"), int) or source_trace["eventCount"] < 0:
+                errors.append("provenance.sourceTrace.eventCount must be a non-negative integer.")
+
+        skill_build = provenance.get("skillBuild")
+        if not isinstance(skill_build, dict):
+            errors.append("provenance.skillBuild must be an object.")
+        else:
+            if skill_build.get("skillName") != mapping.get("skillName"):
+                errors.append("provenance.skillBuild.skillName must match top-level skillName.")
+            if skill_build.get("skillSchemaVersion") != CURRENT_SCHEMA_VERSION:
+                errors.append(
+                    "provenance.skillBuild.skillSchemaVersion must equal "
+                    f"'{CURRENT_SCHEMA_VERSION}'."
+                )
+            if skill_build.get("skillGeneratorVersion") != mapping.get("generatorVersion"):
+                errors.append(
+                    "provenance.skillBuild.skillGeneratorVersion must match top-level generatorVersion."
+                )
+            if skill_build.get("generatedAt") != mapping.get("createdAt"):
+                errors.append("provenance.skillBuild.generatedAt must match top-level createdAt.")
+            if skill_build.get("llmOutputAccepted") != mapping.get("llmOutputAccepted"):
+                errors.append(
+                    "provenance.skillBuild.llmOutputAccepted must match top-level llmOutputAccepted."
+                )
+            repair_version = skill_build.get("repairVersion")
+            if not isinstance(repair_version, int) or repair_version < 0:
+                errors.append("provenance.skillBuild.repairVersion must be a non-negative integer.")
+
+        step_mappings = provenance.get("stepMappings")
+        if not isinstance(step_mappings, list) or len(step_mappings) == 0:
+            errors.append("provenance.stepMappings must be a non-empty array.")
+        else:
+            plan_steps = plan.get("steps", []) if isinstance(plan, dict) else []
+            if len(step_mappings) != len(plan_steps):
+                errors.append("provenance.stepMappings length must equal executionPlan.steps length.")
+
+            for idx, step_mapping in enumerate(step_mappings):
+                if not isinstance(step_mapping, dict):
+                    errors.append(f"provenance.stepMappings[{idx}] must be an object.")
+                    continue
+
+                for key in ["skillStepId", "knowledgeStepId", "instruction"]:
+                    if not isinstance(step_mapping.get(key), str) or not step_mapping[key].strip():
+                        errors.append(f"provenance.stepMappings[{idx}].{key} must be a non-empty string.")
+
+                if idx < len(plan_steps) and step_mapping.get("skillStepId") != plan_steps[idx].get("stepId"):
+                    errors.append(
+                        f"provenance.stepMappings[{idx}].skillStepId must match executionPlan.steps[{idx}].stepId."
+                    )
+
+                source_event_ids = step_mapping.get("sourceEventIds")
+                if not isinstance(source_event_ids, list) or len(source_event_ids) == 0:
+                    errors.append(f"provenance.stepMappings[{idx}].sourceEventIds must be a non-empty array.")
+                else:
+                    for event_idx, value in enumerate(source_event_ids):
+                        if not isinstance(value, str) or not value.strip():
+                            errors.append(
+                                "provenance.stepMappings"
+                                f"[{idx}].sourceEventIds[{event_idx}] must be a non-empty string."
+                            )
+
+                preferred_locator_type = step_mapping.get("preferredLocatorType")
+                if preferred_locator_type is not None and (
+                    not isinstance(preferred_locator_type, str) or not preferred_locator_type.strip()
+                ):
+                    errors.append(
+                        f"provenance.stepMappings[{idx}].preferredLocatorType must be string or null."
+                    )
+
+                coordinate = step_mapping.get("coordinate")
+                if coordinate is not None:
+                    if not isinstance(coordinate, dict):
+                        errors.append(f"provenance.stepMappings[{idx}].coordinate must be object or null.")
+                    else:
+                        for key in ["x", "y", "coordinateSpace"]:
+                            if key not in coordinate:
+                                errors.append(
+                                    f"provenance.stepMappings[{idx}].coordinate missing key: {key}"
+                                )
+
+                semantic_targets = step_mapping.get("semanticTargets")
+                if not isinstance(semantic_targets, list):
+                    errors.append(
+                        f"provenance.stepMappings[{idx}].semanticTargets must be an array."
+                    )
+                else:
+                    for target_idx, semantic_target in enumerate(semantic_targets):
+                        if not isinstance(semantic_target, dict):
+                            errors.append(
+                                "provenance.stepMappings"
+                                f"[{idx}].semanticTargets[{target_idx}] must be an object."
+                            )
+                            continue
+                        for key in ["locatorType", "confidence", "source"]:
+                            if key not in semantic_target:
+                                errors.append(
+                                    "provenance.stepMappings"
+                                    f"[{idx}].semanticTargets[{target_idx}] missing key: {key}"
+                                )
 
     return errors
 

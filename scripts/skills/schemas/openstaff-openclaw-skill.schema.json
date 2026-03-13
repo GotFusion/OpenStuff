@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openstaff.local/schemas/skills/openstaff-openclaw-skill.schema.json",
-  "title": "OpenStaffOpenClawSkillArtifact",
+  "title": "OpenStaffOpenClawSkillArtifactV1",
   "type": "object",
   "required": [
     "schemaVersion",
@@ -10,6 +10,7 @@
     "taskId",
     "sessionId",
     "source",
+    "provenance",
     "mappedOutput",
     "llmOutputAccepted",
     "createdAt",
@@ -18,7 +19,7 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "openstaff.openclaw-skill.v0"
+      "const": "openstaff.openclaw-skill.v1"
     },
     "skillName": {
       "type": "string",
@@ -50,6 +51,264 @@
         "llmOutputPath": {
           "type": "string",
           "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "knowledge",
+        "sourceTrace",
+        "skillBuild",
+        "stepMappings"
+      ],
+      "properties": {
+        "knowledge": {
+          "type": "object",
+          "required": [
+            "knowledgeItemId",
+            "knowledgeSchemaVersion",
+            "taskId",
+            "sessionId",
+            "knowledgeCreatedAt",
+            "knowledgeGeneratorVersion"
+          ],
+          "properties": {
+            "knowledgeItemId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "knowledgeSchemaVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "taskId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sessionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "knowledgeCreatedAt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "knowledgeGeneratorVersion": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "sourceTrace": {
+          "type": "object",
+          "required": [
+            "taskChunkSchemaVersion",
+            "startTimestamp",
+            "endTimestamp",
+            "eventCount",
+            "boundaryReason"
+          ],
+          "properties": {
+            "taskChunkSchemaVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "startTimestamp": {
+              "type": "string",
+              "minLength": 1
+            },
+            "endTimestamp": {
+              "type": "string",
+              "minLength": 1
+            },
+            "eventCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "boundaryReason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "skillBuild": {
+          "type": "object",
+          "required": [
+            "skillName",
+            "skillSchemaVersion",
+            "skillGeneratorVersion",
+            "generatedAt",
+            "repairVersion",
+            "llmOutputAccepted"
+          ],
+          "properties": {
+            "skillName": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+            },
+            "skillSchemaVersion": {
+              "type": "string",
+              "const": "openstaff.openclaw-skill.v1"
+            },
+            "skillGeneratorVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "generatedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "repairVersion": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "llmOutputAccepted": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "stepMappings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "skillStepId",
+              "knowledgeStepId",
+              "instruction",
+              "sourceEventIds",
+              "preferredLocatorType",
+              "coordinate",
+              "semanticTargets"
+            ],
+            "properties": {
+              "skillStepId": {
+                "type": "string",
+                "pattern": "^step-[0-9]{3}$"
+              },
+              "knowledgeStepId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "instruction": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sourceEventIds": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "preferredLocatorType": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "coordinate": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  },
+                  "coordinateSpace": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "coordinateSpace"
+                ],
+                "additionalProperties": false
+              },
+              "semanticTargets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "locatorType",
+                    "confidence",
+                    "source"
+                  ],
+                  "properties": {
+                    "locatorType": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "appBundleId": {
+                      "type": "string"
+                    },
+                    "windowTitlePattern": {
+                      "type": "string"
+                    },
+                    "elementRole": {
+                      "type": "string"
+                    },
+                    "elementTitle": {
+                      "type": "string"
+                    },
+                    "elementIdentifier": {
+                      "type": "string"
+                    },
+                    "boundingRect": {
+                      "type": "object",
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        },
+                        "width": {
+                          "type": "number"
+                        },
+                        "height": {
+                          "type": "number"
+                        },
+                        "coordinateSpace": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "x",
+                        "y",
+                        "width",
+                        "height",
+                        "coordinateSpace"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "confidence": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "source": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false

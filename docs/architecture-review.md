@@ -74,7 +74,7 @@
 
 - `docs/adr/ADR-0001-event-schema.md`（已完成）
 - `docs/adr/ADR-0002-storage-strategy.md`（已完成）
-- `docs/adr/ADR-0003-openclaw-integration.md`
+- `docs/adr/ADR-0007-openclaw-companion-boundary.md`（已完成）
 - `docs/adr/ADR-0004-execution-safety.md`
 
 ## 7. 结论

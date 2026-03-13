@@ -23,8 +23,9 @@ if str(LLM_DIR) not in sys.path:
 from validate_knowledge_parse_output import extract_json_from_text, validate_output
 
 
-SCHEMA_VERSION = "openstaff.openclaw-skill.v0"
-GENERATOR_VERSION = "openstaff-skill-mapper-v0"
+SCHEMA_VERSION = "openstaff.openclaw-skill.v1"
+GENERATOR_VERSION = "openstaff-skill-mapper-v1"
+REPAIR_VERSION = 0
 ACTION_TYPES = {"openApp", "click", "input", "shortcut", "wait", "unknown"}
 
 
@@ -101,6 +102,30 @@ def infer_target(instruction: str, action_type: str, app_name: str) -> str:
 
 def manual_confirmation_required(constraints: list[dict[str, Any]]) -> bool:
     return any(c.get("type") == "manualConfirmationRequired" for c in constraints)
+
+
+def normalize_string(value: Any, fallback: str = "unknown") -> str:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    if value is None:
+        return fallback
+    text = str(value).strip()
+    return text or fallback
+
+
+def normalize_string_list(value: Any, fallback: list[str] | None = None) -> list[str]:
+    if isinstance(value, list):
+        normalized = [str(item).strip() for item in value if str(item).strip()]
+        if normalized:
+            return normalized
+    return list(fallback or ["unknown"])
+
+
+def normalize_non_negative_int(value: Any, fallback: int = 0) -> int:
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return fallback
 
 
 def validate_knowledge_item(knowledge_item: Any) -> list[str]:
@@ -357,16 +382,131 @@ def normalize_execution_plan(
     return normalized, diagnostics
 
 
-def render_skill_markdown(skill_name: str, mapped: dict[str, Any], knowledge_item: dict[str, Any]) -> str:
+def build_provenance(
+    skill_name: str,
+    knowledge_item: dict[str, Any],
+    mapped: dict[str, Any],
+    created_at: str,
+    llm_output_accepted: bool,
+) -> dict[str, Any]:
+    knowledge_source = knowledge_item.get("source", {})
+    if not isinstance(knowledge_source, dict):
+        knowledge_source = {}
+
+    knowledge_steps = knowledge_item.get("steps", [])
+    if not isinstance(knowledge_steps, list):
+        knowledge_steps = []
+
+    mapped_steps = mapped.get("executionPlan", {}).get("steps", [])
+    if not isinstance(mapped_steps, list):
+        mapped_steps = []
+
+    step_mappings: list[dict[str, Any]] = []
+    for index, mapped_step in enumerate(mapped_steps):
+        if not isinstance(mapped_step, dict):
+            continue
+
+        knowledge_step = (
+            knowledge_steps[index]
+            if index < len(knowledge_steps) and isinstance(knowledge_steps[index], dict)
+            else {}
+        )
+        target = knowledge_step.get("target", {})
+        if not isinstance(target, dict):
+            target = {}
+
+        coordinate = target.get("coordinate")
+        if not isinstance(coordinate, dict):
+            coordinate = None
+
+        semantic_targets = target.get("semanticTargets")
+        if not isinstance(semantic_targets, list):
+            semantic_targets = []
+
+        preferred_locator_type = target.get("preferredLocatorType")
+        if preferred_locator_type is not None:
+            preferred_locator_type = normalize_string(preferred_locator_type)
+
+        skill_step_id = normalize_string(mapped_step.get("stepId"), f"step-{index + 1:03d}")
+        step_mappings.append(
+            {
+                "skillStepId": skill_step_id,
+                "knowledgeStepId": normalize_string(knowledge_step.get("stepId"), skill_step_id),
+                "instruction": normalize_string(
+                    knowledge_step.get("instruction"),
+                    normalize_string(mapped_step.get("instruction")),
+                ),
+                "sourceEventIds": normalize_string_list(mapped_step.get("sourceEventIds")),
+                "preferredLocatorType": preferred_locator_type,
+                "coordinate": coordinate,
+                "semanticTargets": [item for item in semantic_targets if isinstance(item, dict)],
+            }
+        )
+
+    return {
+        "knowledge": {
+            "knowledgeItemId": normalize_string(knowledge_item.get("knowledgeItemId")),
+            "knowledgeSchemaVersion": normalize_string(knowledge_item.get("schemaVersion"), "knowledge.item.v0"),
+            "taskId": normalize_string(knowledge_item.get("taskId")),
+            "sessionId": normalize_string(knowledge_item.get("sessionId")),
+            "knowledgeCreatedAt": normalize_string(knowledge_item.get("createdAt")),
+            "knowledgeGeneratorVersion": normalize_string(
+                knowledge_item.get("generatorVersion"),
+                "rule-v0",
+            ),
+        },
+        "sourceTrace": {
+            "taskChunkSchemaVersion": normalize_string(
+                knowledge_source.get("taskChunkSchemaVersion"),
+                "knowledge.task-chunk.v0",
+            ),
+            "startTimestamp": normalize_string(knowledge_source.get("startTimestamp")),
+            "endTimestamp": normalize_string(knowledge_source.get("endTimestamp")),
+            "eventCount": normalize_non_negative_int(knowledge_source.get("eventCount", 0)),
+            "boundaryReason": normalize_string(knowledge_source.get("boundaryReason")),
+        },
+        "skillBuild": {
+            "skillName": skill_name,
+            "skillSchemaVersion": SCHEMA_VERSION,
+            "skillGeneratorVersion": GENERATOR_VERSION,
+            "generatedAt": created_at,
+            "repairVersion": REPAIR_VERSION,
+            "llmOutputAccepted": llm_output_accepted,
+        },
+        "stepMappings": step_mappings,
+    }
+
+
+def render_skill_markdown(
+    skill_name: str,
+    mapped: dict[str, Any],
+    knowledge_item: dict[str, Any],
+    provenance: dict[str, Any],
+) -> str:
     plan = mapped["executionPlan"]
     context = mapped["context"]
+    step_mappings = provenance.get("stepMappings", [])
     step_lines: list[str] = []
     for idx, step in enumerate(plan["steps"], start=1):
         source_ids = ", ".join(step["sourceEventIds"])
+        provenance_step = (
+            step_mappings[idx - 1]
+            if idx - 1 < len(step_mappings) and isinstance(step_mappings[idx - 1], dict)
+            else {}
+        )
+        knowledge_step_id = normalize_string(provenance_step.get("knowledgeStepId"), step["stepId"])
+        preferred_locator_type = provenance_step.get("preferredLocatorType")
+        preferred_locator_text = (
+            normalize_string(preferred_locator_type)
+            if preferred_locator_type is not None
+            else "unknown"
+        )
         step_lines.extend(
             [
                 f"{idx}. [{step['actionType']}] {step['instruction']}",
+                f"   - knowledgeStepId: `{knowledge_step_id}`",
                 f"   - target: `{step['target']}`",
+                f"   - preferredLocatorType: `{preferred_locator_text}`",
                 f"   - sourceEventIds: `{source_ids}`",
             ]
         )
@@ -374,12 +514,27 @@ def render_skill_markdown(skill_name: str, mapped: dict[str, Any], knowledge_ite
     safety_lines = "\n".join([f"- {note}" for note in mapped["safetyNotes"]])
     summary = str(knowledge_item.get("summary", "")).strip() or "无摘要"
     requires_confirmation = "true" if plan["requiresTeacherConfirmation"] else "false"
-    metadata_json = (
-        '{"openclaw":{"emoji":"🎓","skillKey":"'
-        + skill_name
-        + '","requires":{"config":["openstaff.enabled"]}}}'
+    metadata_json = json.dumps(
+        {
+            "openclaw": {
+                "emoji": "🎓",
+                "skillKey": skill_name,
+                "requires": {"config": ["openstaff.enabled"]},
+            },
+            "openstaff": {
+                "knowledgeItemId": provenance["knowledge"]["knowledgeItemId"],
+                "taskId": provenance["knowledge"]["taskId"],
+                "sessionId": provenance["knowledge"]["sessionId"],
+                "repairVersion": provenance["skillBuild"]["repairVersion"],
+            },
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
     )
     title = mapped["objective"]
+    provenance_knowledge = provenance["knowledge"]
+    provenance_trace = provenance["sourceTrace"]
+    provenance_build = provenance["skillBuild"]
 
     return f"""---
 name: {skill_name}
@@ -395,8 +550,16 @@ metadata: {metadata_json}
 - appName: `{context['appName']}`
 - appBundleId: `{context['appBundleId']}`
 - windowTitle: `{context['windowTitle']}`
-- taskId: `{knowledge_item.get('taskId', 'unknown')}`
-- knowledgeItemId: `{knowledge_item.get('knowledgeItemId', 'unknown')}`
+
+## Provenance
+- sessionId: `{provenance_knowledge['sessionId']}`
+- taskId: `{provenance_knowledge['taskId']}`
+- knowledgeItemId: `{provenance_knowledge['knowledgeItemId']}`
+- sourceTaskChunkSchemaVersion: `{provenance_trace['taskChunkSchemaVersion']}`
+- sourceEventCount: `{provenance_trace['eventCount']}`
+- knowledgeGeneratorVersion: `{provenance_knowledge['knowledgeGeneratorVersion']}`
+- skillGeneratorVersion: `{provenance_build['skillGeneratorVersion']}`
+- repairVersion: `{provenance_build['repairVersion']}`
 
 ## Teacher Summary
 {summary}
@@ -473,7 +636,15 @@ def main() -> int:
         )
         return 1
 
-    skill_md = render_skill_markdown(skill_name, normalized, knowledge_item)
+    created_at = iso_now()
+    provenance = build_provenance(
+        skill_name=skill_name,
+        knowledge_item=knowledge_item,
+        mapped=normalized,
+        created_at=created_at,
+        llm_output_accepted=llm_valid,
+    )
+    skill_md = render_skill_markdown(skill_name, normalized, knowledge_item, provenance)
     mapped_payload = {
         "schemaVersion": SCHEMA_VERSION,
         "skillName": skill_name,
@@ -484,10 +655,11 @@ def main() -> int:
             "knowledgeItemPath": str(args.knowledge_item),
             "llmOutputPath": str(args.llm_output),
         },
+        "provenance": provenance,
         "mappedOutput": normalized,
         "diagnostics": llm_diagnostics + normalize_diagnostics,
         "llmOutputAccepted": llm_valid,
-        "createdAt": iso_now(),
+        "createdAt": created_at,
         "generatorVersion": GENERATOR_VERSION,
     }
 

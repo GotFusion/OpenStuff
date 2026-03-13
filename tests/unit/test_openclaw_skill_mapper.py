@@ -52,6 +52,26 @@ class OpenClawSkillMapperTests(unittest.TestCase):
         self.assertGreater(len(normalized["executionPlan"]["steps"]), 0)
         self.assertTrue(any("Fallback objective" in d for d in diagnostics))
 
+    def test_build_provenance_contains_step_level_traceability(self):
+        normalized, _ = self.mod.normalize_execution_plan(
+            knowledge_item=self.sample_knowledge,
+            llm_output=self.sample_llm,
+            llm_valid=True,
+        )
+
+        provenance = self.mod.build_provenance(
+            skill_name="openstaff-task-session-20260307-a1-001",
+            knowledge_item=self.sample_knowledge,
+            mapped=normalized,
+            created_at=self.mod.iso_now(),
+            llm_output_accepted=True,
+        )
+
+        self.assertEqual(provenance["knowledge"]["knowledgeItemId"], self.sample_knowledge["knowledgeItemId"])
+        self.assertEqual(len(provenance["stepMappings"]), len(normalized["executionPlan"]["steps"]))
+        self.assertEqual(provenance["stepMappings"][0]["knowledgeStepId"], "step-001")
+        self.assertGreater(len(provenance["stepMappings"][0]["semanticTargets"]), 0)
+
     def test_validate_knowledge_item_detects_missing_steps(self):
         broken = dict(self.sample_knowledge)
         broken["steps"] = []
