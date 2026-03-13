@@ -34,7 +34,12 @@
 
 ## 4. v0 产出规则
 
-当前阶段尚未补齐 AX path、文本锚点与截图锚点，因此 v0 先保证：
+阶段 7.2 接入焦点元素上下文后，v0 的新增约定为：
+
+- 若能从 `contextSnapshot.focusedElement` 读取到 `role/title/identifier`，优先生成一个 `roleAndTitle` 候选。
+- 若采集不到焦点元素，继续仅落 `coordinateFallback`。
+
+当前阶段尚未补齐 AX path 与文本锚点，因此基础保证仍为：
 
 - 每个点击步骤都生成一个 `coordinateFallback` 候选。
 - `appBundleId` 直接来自采集上下文。

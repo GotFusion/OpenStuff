@@ -28,11 +28,12 @@ NormalizedEvent
 | eventId | string | 是 | 原始事件唯一 ID（UUID） |
 | sessionId | string | 是 | 会话 ID（同一教学过程共享） |
 | timestamp | string | 是 | ISO-8601 时间戳 |
-| source | enum | 是 | 当前固定 `mouse` |
-| action | enum | 是 | `leftClick` / `rightClick` / `doubleClick` |
+| source | enum | 是 | `mouse` / `keyboard` |
+| action | enum | 是 | `leftClick` / `rightClick` / `doubleClick` / `keyDown` |
 | pointer | object | 是 | 点击坐标（屏幕坐标系） |
 | contextSnapshot | ContextSnapshot | 是 | 前台上下文 |
 | modifiers | string[] | 否 | 点击时按下的修饰键 |
+| keyboard | object \| null | 否 | 键盘事件元数据；高敏感输入场景会脱敏 |
 
 ## 4. ContextSnapshot（上下文快照）
 
@@ -43,6 +44,10 @@ NormalizedEvent
 | windowTitle | string \| null | 否 | 前台窗口标题 |
 | windowId | string \| null | 否 | 系统窗口 ID（可空） |
 | isFrontmost | bool | 是 | 是否前台窗口 |
+| windowSignature | object \| null | 否 | 基于窗口角色/标题/尺寸桶生成的稳定签名 |
+| focusedElement | object \| null | 否 | 当前焦点元素的可读属性快照 |
+| screenshotAnchors | object[] | 否 | 操作前后轻量截图锚点，仅存派生指纹 |
+| captureDiagnostics | object[] | 否 | 权限受限或采集降级的结构化错误码 |
 
 ## 5. NormalizedEvent（标准化事件）
 
@@ -65,10 +70,13 @@ NormalizedEvent
 - `sessionId` 在同一会话内不变。
 - `timestamp` 必须带时区偏移。
 - `contextSnapshot.appName` 和 `contextSnapshot.appBundleId` 必须同时存在。
+- `contextSnapshot.screenshotAnchors` 仅保存派生特征，不保存原始截图。
+- `keyboard.isSensitiveInput=true` 时，不保留高敏感原文输入。
 - 新写入的点击 `NormalizedEvent` 应同时保留：
   - `target.coordinate`
   - 至少一个 `target.semanticTargets[]`
 - 旧 `capture.normalized.v0` 数据允许缺省 `semanticTargets`，读取时按空数组兼容。
+- 旧 `capture.raw.v0` 数据允许缺省 `windowSignature` / `focusedElement` / `screenshotAnchors` / `captureDiagnostics`。
 
 ## 7. 文件位置
 

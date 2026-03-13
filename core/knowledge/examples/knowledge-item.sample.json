@@ -20,6 +20,23 @@
         },
         "semanticTargets": [
           {
+            "locatorType": "roleAndTitle",
+            "appBundleId": "com.apple.Safari",
+            "windowTitlePattern": "^OpenStaff\\ - GitHub$",
+            "elementRole": "AXButton",
+            "elementTitle": "Pull requests",
+            "elementIdentifier": "unified-tab-bar.pull-requests",
+            "boundingRect": {
+              "x": 820,
+              "y": 498,
+              "width": 110,
+              "height": 36,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.68,
+            "source": "capture"
+          },
+          {
             "locatorType": "coordinateFallback",
             "appBundleId": "com.apple.Safari",
             "windowTitlePattern": "^OpenStaff\\ - GitHub$",
@@ -34,7 +51,7 @@
             "source": "capture"
           }
         ],
-        "preferredLocatorType": "coordinateFallback"
+        "preferredLocatorType": "roleAndTitle"
       }
     },
     {
@@ -51,6 +68,23 @@
         },
         "semanticTargets": [
           {
+            "locatorType": "roleAndTitle",
+            "appBundleId": "com.apple.Safari",
+            "windowTitlePattern": "^OpenStaff\\ - GitHub$",
+            "elementRole": "AXLink",
+            "elementTitle": "Issues",
+            "elementIdentifier": "repo-nav.issues",
+            "boundingRect": {
+              "x": 888,
+              "y": 582,
+              "width": 74,
+              "height": 30,
+              "coordinateSpace": "screen"
+            },
+            "confidence": 0.68,
+            "source": "capture"
+          },
+          {
             "locatorType": "coordinateFallback",
             "appBundleId": "com.apple.Safari",
             "windowTitlePattern": "^OpenStaff\\ - GitHub$",
@@ -65,7 +99,7 @@
             "source": "capture"
           }
         ],
-        "preferredLocatorType": "coordinateFallback"
+        "preferredLocatorType": "roleAndTitle"
       }
     }
   ],

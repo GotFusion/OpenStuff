@@ -127,6 +127,7 @@ OpenStaff 的定位是“老师-学生”式个人助理：
 - 完成阶段 6.2 测试体系落地（补强）：在原有 schema/映射链路测试基础上，新增 `test_validate_openclaw_skill.py`、`test_task_slicer_cli.py`、`test_three_mode_cli_roundtrip.py`，把覆盖扩展到 `SKILL.md` 校验器、`OpenStaffTaskSlicerCLI` 切片策略，以及 `Orchestrator/Assist/Student` 三模式真实 CLI 闭环；统一入口仍为 `scripts/tests/run_all.py` 与 `make test*`。
 - 完成阶段 6.3 发布前检查：补齐配置模板（`config/release.example.yaml`）与配置文档；新增 `scripts/release/run_regression.py`（发布回归与 JSON 报告）；新增 `make release-regression` / `make release-preflight` 一键入口。
 - 完成阶段 7.1 Semantic Target 数据模型：新增 `SemanticTarget` 共享契约、capture/knowledge schema 与 ADR，并让 `KnowledgeItemBuilder` 为点击步骤自动写入 `coordinateFallback` 候选，同时保持旧 `capture.normalized.v0` / `knowledge.item.v0` 数据兼容解码。
+- 完成阶段 7.2 采集上下文增强：CLI 与教学模式采集统一写出共享 `RawEvent`，补充窗口稳定签名、焦点元素可读属性、轻量截图锚点指纹和结构化降级错误码；高敏感键盘输入在安全文本场景下会自动脱敏。
 - 新增用户使用说明书 `docs/user-manual.md`，覆盖教学->辅助->学生三模式日常运行与发布回归流程。
 - 完成菜单栏+前台部件 v4 的 Phase A（基础样式收敛）：字体/间距/节点透明色/截断规则统一 token 化，超长文案统一按场景截断。
 - 完成菜单栏+前台部件 v4 的 Phase B（精简模式改造）：球体样式替换为透明方框，精简信息收敛到当前任务/下一步/轻提示，整块区域可点击切换详细模式。

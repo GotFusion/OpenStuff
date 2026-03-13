@@ -34,7 +34,8 @@
     "source": {
       "type": "string",
       "enum": [
-        "mouse"
+        "mouse",
+        "keyboard"
       ]
     },
     "action": {
@@ -42,7 +43,8 @@
       "enum": [
         "leftClick",
         "rightClick",
-        "doubleClick"
+        "doubleClick",
+        "keyDown"
       ]
     },
     "pointer": {
@@ -83,6 +85,51 @@
         ]
       },
       "uniqueItems": true
+    },
+    "keyboard": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "keyCode",
+            "isRepeat",
+            "isSensitiveInput"
+          ],
+          "properties": {
+            "keyCode": {
+              "type": "integer"
+            },
+            "characters": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "charactersIgnoringModifiers": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "isRepeat": {
+              "type": "boolean"
+            },
+            "isSensitiveInput": {
+              "type": "boolean"
+            },
+            "redactionReason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   }
 }

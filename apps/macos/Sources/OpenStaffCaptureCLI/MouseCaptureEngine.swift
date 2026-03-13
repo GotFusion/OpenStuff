@@ -66,19 +66,29 @@ final class MouseCaptureEngine {
             return
         }
 
+        let pointer = PointerLocation(
+            x: Int(event.locationInWindow.x.rounded()),
+            y: Int(event.locationInWindow.y.rounded())
+        )
+        let contextSnapshot = contextResolver.snapshot(
+            pointer: pointer,
+            action: action
+        )
+
         let rawEvent = RawEvent(
             eventId: UUID().uuidString.lowercased(),
             sessionId: sessionId,
             timestamp: timestampFormatter.string(from: Date()),
             source: action.source,
             action: action,
-            pointer: PointerLocation(
-                x: Int(event.locationInWindow.x.rounded()),
-                y: Int(event.locationInWindow.y.rounded())
-            ),
-            contextSnapshot: contextResolver.snapshot(),
+            pointer: pointer,
+            contextSnapshot: contextSnapshot,
             modifiers: keyboardModifiers(from: event),
-            keyboard: keyboardPayload(from: event, action: action)
+            keyboard: keyboardPayload(
+                from: event,
+                action: action,
+                contextSnapshot: contextSnapshot
+            )
         )
 
         do {
@@ -154,15 +164,24 @@ final class MouseCaptureEngine {
         return modifiers
     }
 
-    private func keyboardPayload(from event: NSEvent, action: RawEventAction) -> KeyboardEventPayload? {
+    private func keyboardPayload(
+        from event: NSEvent,
+        action: RawEventAction,
+        contextSnapshot: ContextSnapshot
+    ) -> KeyboardEventPayload? {
         guard action == .keyDown else {
             return nil
         }
+
+        let shouldRedact = contextSnapshot.focusedElement?.valueRedacted == true
+
         return KeyboardEventPayload(
             keyCode: Int(event.keyCode),
-            characters: event.characters,
-            charactersIgnoringModifiers: event.charactersIgnoringModifiers,
-            isRepeat: event.isARepeat
+            characters: shouldRedact ? nil : event.characters,
+            charactersIgnoringModifiers: shouldRedact ? nil : event.charactersIgnoringModifiers,
+            isRepeat: event.isARepeat,
+            isSensitiveInput: shouldRedact,
+            redactionReason: shouldRedact ? "secureTextField" : nil
         )
     }
 

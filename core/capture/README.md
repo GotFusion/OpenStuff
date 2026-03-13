@@ -2,9 +2,10 @@
 
 负责采集老师在 macOS 上的操作行为。
 
-## 当前状态（Phase 1.1 / 1.2 已完成）
+## 当前状态（Phase 1.1 / 1.2 / 7.2 已完成）
 - 已定义事件模型：`RawEvent`、`ContextSnapshot`、`NormalizedEvent`。
 - 已定义语义定位模型：`SemanticTarget`。
+- 已补充窗口稳定签名、焦点元素属性、截图锚点与结构化降级诊断。
 - 已补充 JSON Schema：`schemas/*.schema.json`。
 - 已提供样例数据：`examples/*.jsonl`。
 - 已落地跨模块 Swift 契约：`core/contracts/CaptureEventContracts.swift`。
@@ -21,5 +22,4 @@
 
 ## 未来实现
 - JSONL 落盘与轮转（TODO 1.3）。
-- 截图或 UI 元素定位信息（按隐私策略可开关）。
 - 标准化事件持久化与知识层消费链路。

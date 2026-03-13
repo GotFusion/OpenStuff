@@ -72,17 +72,42 @@ public struct KeyboardEventPayload: Codable, Equatable {
     public let characters: String?
     public let charactersIgnoringModifiers: String?
     public let isRepeat: Bool
+    public let isSensitiveInput: Bool
+    public let redactionReason: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case keyCode
+        case characters
+        case charactersIgnoringModifiers
+        case isRepeat
+        case isSensitiveInput
+        case redactionReason
+    }
 
     public init(
         keyCode: Int,
         characters: String?,
         charactersIgnoringModifiers: String?,
-        isRepeat: Bool
+        isRepeat: Bool,
+        isSensitiveInput: Bool = false,
+        redactionReason: String? = nil
     ) {
         self.keyCode = keyCode
         self.characters = characters
         self.charactersIgnoringModifiers = charactersIgnoringModifiers
         self.isRepeat = isRepeat
+        self.isSensitiveInput = isSensitiveInput
+        self.redactionReason = redactionReason
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.keyCode = try container.decode(Int.self, forKey: .keyCode)
+        self.characters = try container.decodeIfPresent(String.self, forKey: .characters)
+        self.charactersIgnoringModifiers = try container.decodeIfPresent(String.self, forKey: .charactersIgnoringModifiers)
+        self.isRepeat = try container.decode(Bool.self, forKey: .isRepeat)
+        self.isSensitiveInput = try container.decodeIfPresent(Bool.self, forKey: .isSensitiveInput) ?? false
+        self.redactionReason = try container.decodeIfPresent(String.self, forKey: .redactionReason)
     }
 }
 
@@ -110,19 +135,164 @@ public struct ContextSnapshot: Codable, Equatable {
     public let windowTitle: String?
     public let windowId: String?
     public let isFrontmost: Bool
+    public let windowSignature: WindowSignature?
+    public let focusedElement: FocusedElementSnapshot?
+    public let screenshotAnchors: [ScreenshotAnchor]
+    public let captureDiagnostics: [ContextCaptureDiagnostic]
+
+    private enum CodingKeys: String, CodingKey {
+        case appName
+        case appBundleId
+        case windowTitle
+        case windowId
+        case isFrontmost
+        case windowSignature
+        case focusedElement
+        case screenshotAnchors
+        case captureDiagnostics
+    }
 
     public init(
         appName: String,
         appBundleId: String,
         windowTitle: String?,
         windowId: String?,
-        isFrontmost: Bool = true
+        isFrontmost: Bool = true,
+        windowSignature: WindowSignature? = nil,
+        focusedElement: FocusedElementSnapshot? = nil,
+        screenshotAnchors: [ScreenshotAnchor] = [],
+        captureDiagnostics: [ContextCaptureDiagnostic] = []
     ) {
         self.appName = appName
         self.appBundleId = appBundleId
         self.windowTitle = windowTitle
         self.windowId = windowId
         self.isFrontmost = isFrontmost
+        self.windowSignature = windowSignature
+        self.focusedElement = focusedElement
+        self.screenshotAnchors = screenshotAnchors
+        self.captureDiagnostics = captureDiagnostics
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.appName = try container.decode(String.self, forKey: .appName)
+        self.appBundleId = try container.decode(String.self, forKey: .appBundleId)
+        self.windowTitle = try container.decodeIfPresent(String.self, forKey: .windowTitle)
+        self.windowId = try container.decodeIfPresent(String.self, forKey: .windowId)
+        self.isFrontmost = try container.decode(Bool.self, forKey: .isFrontmost)
+        self.windowSignature = try container.decodeIfPresent(WindowSignature.self, forKey: .windowSignature)
+        self.focusedElement = try container.decodeIfPresent(FocusedElementSnapshot.self, forKey: .focusedElement)
+        self.screenshotAnchors = try container.decodeIfPresent([ScreenshotAnchor].self, forKey: .screenshotAnchors) ?? []
+        self.captureDiagnostics = try container.decodeIfPresent([ContextCaptureDiagnostic].self, forKey: .captureDiagnostics) ?? []
+    }
+}
+
+public struct WindowSignature: Codable, Equatable {
+    public let signature: String
+    public let signatureVersion: String
+    public let normalizedTitle: String?
+    public let role: String?
+    public let subrole: String?
+    public let sizeBucket: String?
+
+    public init(
+        signature: String,
+        signatureVersion: String = "window-v1",
+        normalizedTitle: String? = nil,
+        role: String? = nil,
+        subrole: String? = nil,
+        sizeBucket: String? = nil
+    ) {
+        self.signature = signature
+        self.signatureVersion = signatureVersion
+        self.normalizedTitle = normalizedTitle
+        self.role = role
+        self.subrole = subrole
+        self.sizeBucket = sizeBucket
+    }
+}
+
+public struct FocusedElementSnapshot: Codable, Equatable {
+    public let role: String?
+    public let subrole: String?
+    public let title: String?
+    public let identifier: String?
+    public let descriptionText: String?
+    public let helpText: String?
+    public let boundingRect: SemanticBoundingRect?
+    public let valueRedacted: Bool
+
+    public init(
+        role: String? = nil,
+        subrole: String? = nil,
+        title: String? = nil,
+        identifier: String? = nil,
+        descriptionText: String? = nil,
+        helpText: String? = nil,
+        boundingRect: SemanticBoundingRect? = nil,
+        valueRedacted: Bool = false
+    ) {
+        self.role = role
+        self.subrole = subrole
+        self.title = title
+        self.identifier = identifier
+        self.descriptionText = descriptionText
+        self.helpText = helpText
+        self.boundingRect = boundingRect
+        self.valueRedacted = valueRedacted
+    }
+}
+
+public struct ScreenshotAnchor: Codable, Equatable {
+    public let phase: ScreenshotAnchorPhase
+    public let boundingRect: SemanticBoundingRect
+    public let sampleSize: ScreenshotAnchorSampleSize
+    public let pixelHash: String
+    public let averageLuma: Double
+    public let redacted: Bool
+
+    public init(
+        phase: ScreenshotAnchorPhase,
+        boundingRect: SemanticBoundingRect,
+        sampleSize: ScreenshotAnchorSampleSize,
+        pixelHash: String,
+        averageLuma: Double,
+        redacted: Bool = true
+    ) {
+        self.phase = phase
+        self.boundingRect = boundingRect
+        self.sampleSize = sampleSize
+        self.pixelHash = pixelHash
+        self.averageLuma = averageLuma
+        self.redacted = redacted
+    }
+}
+
+public enum ScreenshotAnchorPhase: String, Codable {
+    case before
+    case after
+}
+
+public struct ScreenshotAnchorSampleSize: Codable, Equatable {
+    public let width: Int
+    public let height: Int
+
+    public init(width: Int, height: Int) {
+        self.width = width
+        self.height = height
+    }
+}
+
+public struct ContextCaptureDiagnostic: Codable, Equatable {
+    public let code: String
+    public let field: String
+    public let message: String
+
+    public init(code: String, field: String, message: String) {
+        self.code = code
+        self.field = field
+        self.message = message
     }
 }
 

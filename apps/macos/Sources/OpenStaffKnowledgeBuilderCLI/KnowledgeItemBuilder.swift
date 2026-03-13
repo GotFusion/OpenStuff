@@ -219,11 +219,7 @@ struct KnowledgeItemBuilder {
             actionText = "键盘操作"
         }
 
-        let semanticTarget = SemanticTarget.coordinateFallback(
-            appBundleId: event.contextSnapshot.appBundleId,
-            windowTitle: event.contextSnapshot.windowTitle,
-            coordinate: event.pointer
-        )
+        let semanticTargets = semanticTargets(for: event)
 
         return KnowledgeStep(
             stepId: stepId,
@@ -231,10 +227,49 @@ struct KnowledgeItemBuilder {
             sourceEventIds: [event.eventId],
             target: KnowledgeStepTarget(
                 coordinate: event.pointer,
-                semanticTargets: [semanticTarget],
-                preferredLocatorType: semanticTarget.locatorType
+                semanticTargets: semanticTargets,
+                preferredLocatorType: semanticTargets.first?.locatorType
             )
         )
+    }
+
+    private func semanticTargets(for event: RawEvent) -> [SemanticTarget] {
+        var targets: [SemanticTarget] = []
+
+        if let focusedElement = event.contextSnapshot.focusedElement,
+           focusedElement.role != nil
+            || focusedElement.title != nil
+            || focusedElement.identifier != nil
+            || focusedElement.descriptionText != nil
+            || focusedElement.helpText != nil {
+            let elementTitle = focusedElement.title
+                ?? focusedElement.descriptionText
+                ?? focusedElement.helpText
+
+            targets.append(
+                SemanticTarget(
+                    locatorType: .roleAndTitle,
+                    appBundleId: event.contextSnapshot.appBundleId,
+                    windowTitlePattern: SemanticTarget.exactWindowTitlePattern(for: event.contextSnapshot.windowTitle),
+                    elementRole: focusedElement.role ?? focusedElement.subrole,
+                    elementTitle: elementTitle,
+                    elementIdentifier: focusedElement.identifier,
+                    boundingRect: focusedElement.boundingRect,
+                    confidence: 0.68,
+                    source: .capture
+                )
+            )
+        }
+
+        targets.append(
+            SemanticTarget.coordinateFallback(
+                appBundleId: event.contextSnapshot.appBundleId,
+                windowTitle: event.contextSnapshot.windowTitle,
+                coordinate: event.pointer
+            )
+        )
+
+        return targets
     }
 
     private func buildKeyboardStep(

@@ -75,6 +75,46 @@ final class KeyboardKnowledgeBuilderTests: XCTestCase {
         XCTAssertEqual(boundingRect.coordinateSpace, .screen)
     }
 
+    func testBuildPointerStepPrefersRoleAndTitleSemanticTargetWhenFocusedElementExists() throws {
+        let chunk = makeChunk(eventIds: ["m1"], eventCount: 1)
+        let rawEventIndex: [String: RawEvent] = [
+            "m1": makeMouseClickEvent(
+                eventId: "m1",
+                x: 320,
+                y: 240,
+                focusedElement: FocusedElementSnapshot(
+                    role: "AXButton",
+                    subrole: "AXUnknown",
+                    title: "Open",
+                    identifier: "finder.open-button",
+                    descriptionText: "打开文件",
+                    helpText: "打开当前选中的文件",
+                    boundingRect: SemanticBoundingRect(
+                        x: 300,
+                        y: 220,
+                        width: 80,
+                        height: 24,
+                        coordinateSpace: .screen
+                    ),
+                    valueRedacted: false
+                )
+            )
+        ]
+
+        let builder = KnowledgeItemBuilder()
+        let item = builder.build(from: chunk, rawEventIndex: rawEventIndex)
+        let target = try XCTUnwrap(item.steps.first?.target)
+
+        XCTAssertEqual(target.preferredLocatorType, .roleAndTitle)
+        XCTAssertEqual(target.semanticTargets.count, 2)
+        XCTAssertEqual(target.semanticTargets[0].locatorType, .roleAndTitle)
+        XCTAssertEqual(target.semanticTargets[0].elementRole, "AXButton")
+        XCTAssertEqual(target.semanticTargets[0].elementTitle, "Open")
+        XCTAssertEqual(target.semanticTargets[0].elementIdentifier, "finder.open-button")
+        XCTAssertEqual(target.semanticTargets[0].confidence, 0.68, accuracy: 0.001)
+        XCTAssertEqual(target.semanticTargets[1].locatorType, .coordinateFallback)
+    }
+
     func testNormalizedEventDecodesLegacyCoordinateOnlyTarget() throws {
         let payload = """
         {
@@ -111,6 +151,48 @@ final class KeyboardKnowledgeBuilderTests: XCTestCase {
         XCTAssertEqual(event.target.coordinate.y, 240)
         XCTAssertTrue(event.target.semanticTargets.isEmpty)
         XCTAssertNil(event.target.preferredLocatorType)
+    }
+
+    func testRawEventDecodesLegacyContextSnapshotWithoutRichSemanticFields() throws {
+        let payload = """
+        {
+          "schemaVersion": "capture.raw.v0",
+          "eventId": "11111111-1111-4111-8111-111111111111",
+          "sessionId": "session-test",
+          "timestamp": "2026-03-10T10:00:00Z",
+          "source": "keyboard",
+          "action": "keyDown",
+          "pointer": {
+            "x": 100,
+            "y": 120,
+            "coordinateSpace": "screen"
+          },
+          "contextSnapshot": {
+            "appName": "TestApp",
+            "appBundleId": "com.test.app",
+            "windowTitle": "Main",
+            "windowId": "1",
+            "isFrontmost": true
+          },
+          "modifiers": [],
+          "keyboard": {
+            "keyCode": 4,
+            "characters": "h",
+            "charactersIgnoringModifiers": "h",
+            "isRepeat": false
+          }
+        }
+        """
+
+        let event = try JSONDecoder().decode(RawEvent.self, from: Data(payload.utf8))
+
+        XCTAssertNil(event.contextSnapshot.windowSignature)
+        XCTAssertNil(event.contextSnapshot.focusedElement)
+        XCTAssertTrue(event.contextSnapshot.screenshotAnchors.isEmpty)
+        XCTAssertTrue(event.contextSnapshot.captureDiagnostics.isEmpty)
+        XCTAssertEqual(event.keyboard?.characters, "h")
+        XCTAssertEqual(event.keyboard?.isSensitiveInput, false)
+        XCTAssertNil(event.keyboard?.redactionReason)
     }
 
     private func makeChunk(eventIds: [String], eventCount: Int) -> TaskChunk {
@@ -177,6 +259,30 @@ final class KeyboardKnowledgeBuilderTests: XCTestCase {
                 windowTitle: "Main",
                 windowId: "1",
                 isFrontmost: true
+            )
+        )
+    }
+
+    private func makeMouseClickEvent(
+        eventId: String,
+        x: Int,
+        y: Int,
+        focusedElement: FocusedElementSnapshot
+    ) -> RawEvent {
+        RawEvent(
+            eventId: eventId,
+            sessionId: "session-test",
+            timestamp: "2026-03-10T10:00:00Z",
+            source: .mouse,
+            action: .leftClick,
+            pointer: PointerLocation(x: x, y: y),
+            contextSnapshot: ContextSnapshot(
+                appName: "TestApp",
+                appBundleId: "com.test.app",
+                windowTitle: "Main",
+                windowId: "1",
+                isFrontmost: true,
+                focusedElement: focusedElement
             )
         )
     }

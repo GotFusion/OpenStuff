@@ -32,6 +32,217 @@
     },
     "isFrontmost": {
       "type": "boolean"
+    },
+    "windowSignature": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/windowSignature"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "focusedElement": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/focusedElement"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "screenshotAnchors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/screenshotAnchor"
+      }
+    },
+    "captureDiagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/captureDiagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "windowSignature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signature",
+        "signatureVersion"
+      ],
+      "properties": {
+        "signature": {
+          "type": "string",
+          "minLength": 8
+        },
+        "signatureVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalizedTitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "subrole": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sizeBucket": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "focusedElement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valueRedacted"
+      ],
+      "properties": {
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "subrole": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "identifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "descriptionText": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "helpText": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "boundingRect": {
+          "oneOf": [
+            {
+              "$ref": "./semantic-target.schema.json#/$defs/boundingRect"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valueRedacted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "screenshotAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase",
+        "boundingRect",
+        "sampleSize",
+        "pixelHash",
+        "averageLuma",
+        "redacted"
+      ],
+      "properties": {
+        "phase": {
+          "type": "string",
+          "enum": [
+            "before",
+            "after"
+          ]
+        },
+        "boundingRect": {
+          "$ref": "./semantic-target.schema.json#/$defs/boundingRect"
+        },
+        "sampleSize": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "width",
+            "height"
+          ],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "pixelHash": {
+          "type": "string",
+          "minLength": 8
+        },
+        "averageLuma": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "redacted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "captureDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "field",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   }
 }

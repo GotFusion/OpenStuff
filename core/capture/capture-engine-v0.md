@@ -6,8 +6,9 @@
 
 能力覆盖：
 - 辅助功能权限检查。
-- 全局鼠标点击监听（左键/右键，双击识别）。
-- 前台应用与窗口标题采集。
+- 全局鼠标点击与键盘事件监听。
+- 前台应用、窗口稳定签名、焦点元素可读属性采集。
+- 操作前后轻量截图锚点采集（仅保存派生指纹，不落原始截图）。
 - 原始事件 JSONL 落盘（append-only）。
 - 按日期 + session 分片存储与按大小/时间轮转。
 - 进程异常中断后的续写恢复（同日期同 session 自动续写最后可写分片）。
@@ -39,6 +40,10 @@ make capture ARGS="--output-dir data/raw-events --rotate-max-bytes 1048576 --rot
 - 未授权时返回 `CAP-PERMISSION-DENIED`，并输出系统设置指引。
 - 可通过 `--no-permission-prompt` 禁止弹出系统授权提示。
 
+截图锚点权限策略：
+- 若未授予 Screen Recording 权限，不中断采集。
+- 事件中写入 `contextSnapshot.captureDiagnostics[]`，错误码为 `CTX-SCREENSHOT-PERMISSION-DENIED`。
+
 ## 4. 存储行为
 
 - 默认落盘目录：`data/raw-events/{yyyy-mm-dd}/`。
@@ -57,8 +62,9 @@ make capture ARGS="--output-dir data/raw-events --rotate-max-bytes 1048576 --rot
 
 ## 6. 已知限制
 
-- 当前仅鼠标点击，不采集键盘文本输入。
-- 窗口 ID 依赖 AX 属性，部分应用可能为空。
+- 键盘事件在 `AXSecureTextField` 等高敏感场景下会脱敏，不保留原文字符。
+- 窗口 ID 与焦点元素依赖 AX 属性，部分应用可能为空。
+- 截图锚点依赖 Screen Recording 权限，未授权时只记录降级错误码。
 - 暂未接入写盘前 schema 校验（计划在 `scripts/validation` 补齐）。
 
 ## 7. 手动验收命令（TODO 1.3）

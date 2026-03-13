@@ -1,5 +1,4 @@
 import AppKit
-import ApplicationServices
 import Foundation
 
 enum DashboardCaptureStartupError: LocalizedError {
@@ -31,7 +30,7 @@ final class ModeObservationCaptureService: ModeObservationCaptureControlling {
     var onEventCaptured: ((Int) -> Void)?
 
     private let outputRootDirectory: URL
-    private let contextResolver = ModeObservationContextResolver()
+    private let contextResolver = CaptureSemanticContextResolver()
     private let timestampFormatter: ISO8601DateFormatter
 
     private var monitorToken: Any?
@@ -120,18 +119,29 @@ final class ModeObservationCaptureService: ModeObservationCaptureControlling {
             return
         }
 
-        let rawEvent = ModeObservationRawEvent(
+        let pointer = PointerLocation(
+            x: Int(event.locationInWindow.x.rounded()),
+            y: Int(event.locationInWindow.y.rounded())
+        )
+        let contextSnapshot = contextResolver.snapshot(
+            pointer: pointer,
+            action: action,
+            includeWindowContext: includeWindowContext
+        )
+        let rawEvent = RawEvent(
             eventId: UUID().uuidString.lowercased(),
             sessionId: sessionId,
             timestamp: timestampFormatter.string(from: Date()),
+            source: action.source,
             action: action,
-            pointer: ModeObservationPointer(
-                x: Int(event.locationInWindow.x.rounded()),
-                y: Int(event.locationInWindow.y.rounded())
-            ),
-            contextSnapshot: contextResolver.snapshot(includeWindowContext: includeWindowContext),
+            pointer: pointer,
+            contextSnapshot: contextSnapshot,
             modifiers: keyboardModifiers(from: event),
-            keyboard: keyboardPayload(from: event, action: action)
+            keyboard: keyboardPayload(
+                from: event,
+                action: action,
+                contextSnapshot: contextSnapshot
+            )
         )
 
         do {
@@ -144,7 +154,7 @@ final class ModeObservationCaptureService: ModeObservationCaptureControlling {
         }
     }
 
-    private func mapAction(_ event: NSEvent) -> ModeObservationAction? {
+    private func mapAction(_ event: NSEvent) -> RawEventAction? {
         switch event.type {
         case .leftMouseDown:
             return event.clickCount >= 2 ? .doubleClick : .leftClick
@@ -157,8 +167,8 @@ final class ModeObservationCaptureService: ModeObservationCaptureControlling {
         }
     }
 
-    private func keyboardModifiers(from event: NSEvent) -> [ModeObservationModifier] {
-        var modifiers: [ModeObservationModifier] = []
+    private func keyboardModifiers(from event: NSEvent) -> [KeyboardModifier] {
+        var modifiers: [KeyboardModifier] = []
 
         if event.modifierFlags.contains(.command) {
             modifiers.append(.command)
@@ -176,15 +186,24 @@ final class ModeObservationCaptureService: ModeObservationCaptureControlling {
         return modifiers
     }
 
-    private func keyboardPayload(from event: NSEvent, action: ModeObservationAction) -> ModeObservationKeyboardPayload? {
+    private func keyboardPayload(
+        from event: NSEvent,
+        action: RawEventAction,
+        contextSnapshot: ContextSnapshot
+    ) -> KeyboardEventPayload? {
         guard action == .keyDown else {
             return nil
         }
-        return ModeObservationKeyboardPayload(
+
+        let shouldRedact = contextSnapshot.focusedElement?.valueRedacted == true
+
+        return KeyboardEventPayload(
             keyCode: Int(event.keyCode),
-            characters: event.characters,
-            charactersIgnoringModifiers: event.charactersIgnoringModifiers,
-            isRepeat: event.isARepeat
+            characters: shouldRedact ? nil : event.characters,
+            charactersIgnoringModifiers: shouldRedact ? nil : event.charactersIgnoringModifiers,
+            isRepeat: event.isARepeat,
+            isSensitiveInput: shouldRedact,
+            redactionReason: shouldRedact ? "secureTextField" : nil
         )
     }
 
@@ -238,7 +257,7 @@ private final class ModeObservationEventSink {
         }
     }
 
-    func append(_ event: ModeObservationRawEvent) throws {
+    func append(_ event: RawEvent) throws {
         let lineData: Data
         do {
             lineData = try encodeJSONLine(event)
@@ -265,186 +284,11 @@ private final class ModeObservationEventSink {
         }
     }
 
-    private func encodeJSONLine(_ event: ModeObservationRawEvent) throws -> Data {
+    private func encodeJSONLine(_ event: RawEvent) throws -> Data {
         var data = try encoder.encode(event)
         data.append(0x0A)
         return data
     }
-}
-
-private struct ModeObservationContextResolver {
-    func snapshot(includeWindowContext: Bool) -> ModeObservationContextSnapshot {
-        guard let app = NSWorkspace.shared.frontmostApplication else {
-            return ModeObservationContextSnapshot(
-                appName: "Unknown",
-                appBundleId: "unknown.bundle.id",
-                windowTitle: nil,
-                windowId: nil,
-                isFrontmost: true
-            )
-        }
-
-        let pid = app.processIdentifier
-        if !includeWindowContext {
-            return ModeObservationContextSnapshot(
-                appName: app.localizedName ?? "Unknown",
-                appBundleId: app.bundleIdentifier ?? "unknown.bundle.id",
-                windowTitle: nil,
-                windowId: nil,
-                isFrontmost: true
-            )
-        }
-
-        return ModeObservationContextSnapshot(
-            appName: app.localizedName ?? "Unknown",
-            appBundleId: app.bundleIdentifier ?? "unknown.bundle.id",
-            windowTitle: focusedWindowTitle(pid: pid),
-            windowId: focusedWindowId(pid: pid),
-            isFrontmost: true
-        )
-    }
-
-    private func focusedWindowTitle(pid: pid_t) -> String? {
-        guard let windowElement = focusedWindowElement(pid: pid) else {
-            return nil
-        }
-
-        var titleValue: CFTypeRef?
-        let result = AXUIElementCopyAttributeValue(
-            windowElement,
-            kAXTitleAttribute as CFString,
-            &titleValue
-        )
-        guard result == .success else {
-            return nil
-        }
-
-        return titleValue as? String
-    }
-
-    private func focusedWindowId(pid: pid_t) -> String? {
-        guard let windowElement = focusedWindowElement(pid: pid) else {
-            return nil
-        }
-
-        var idValue: CFTypeRef?
-        let attribute = "AXWindowNumber" as CFString
-        let result = AXUIElementCopyAttributeValue(windowElement, attribute, &idValue)
-        guard result == .success else {
-            return nil
-        }
-
-        if let number = idValue as? NSNumber {
-            return number.stringValue
-        }
-        return idValue as? String
-    }
-
-    private func focusedWindowElement(pid: pid_t) -> AXUIElement? {
-        let appElement = AXUIElementCreateApplication(pid)
-
-        var focusedWindowValue: CFTypeRef?
-        let result = AXUIElementCopyAttributeValue(
-            appElement,
-            kAXFocusedWindowAttribute as CFString,
-            &focusedWindowValue
-        )
-        guard result == .success else {
-            return nil
-        }
-
-        return (focusedWindowValue as! AXUIElement)
-    }
-}
-
-private struct ModeObservationRawEvent: Codable {
-    let schemaVersion: String
-    let eventId: String
-    let sessionId: String
-    let timestamp: String
-    let source: ModeObservationSource
-    let action: ModeObservationAction
-    let pointer: ModeObservationPointer
-    let contextSnapshot: ModeObservationContextSnapshot
-    let modifiers: [ModeObservationModifier]
-    let keyboard: ModeObservationKeyboardPayload?
-
-    init(
-        eventId: String,
-        sessionId: String,
-        timestamp: String,
-        action: ModeObservationAction,
-        pointer: ModeObservationPointer,
-        contextSnapshot: ModeObservationContextSnapshot,
-        modifiers: [ModeObservationModifier],
-        keyboard: ModeObservationKeyboardPayload?
-    ) {
-        self.schemaVersion = "capture.raw.v0"
-        self.eventId = eventId
-        self.sessionId = sessionId
-        self.timestamp = timestamp
-        self.source = action.source
-        self.action = action
-        self.pointer = pointer
-        self.contextSnapshot = contextSnapshot
-        self.modifiers = modifiers
-        self.keyboard = keyboard
-    }
-}
-
-private enum ModeObservationSource: String, Codable {
-    case mouse
-    case keyboard
-}
-
-private enum ModeObservationAction: String, Codable, Equatable {
-    case leftClick
-    case rightClick
-    case doubleClick
-    case keyDown
-
-    var source: ModeObservationSource {
-        switch self {
-        case .leftClick, .rightClick, .doubleClick:
-            return .mouse
-        case .keyDown:
-            return .keyboard
-        }
-    }
-}
-
-private enum ModeObservationModifier: String, Codable {
-    case command
-    case shift
-    case option
-    case control
-}
-
-private struct ModeObservationPointer: Codable {
-    let x: Int
-    let y: Int
-    let coordinateSpace: String
-
-    init(x: Int, y: Int, coordinateSpace: String = "screen") {
-        self.x = x
-        self.y = y
-        self.coordinateSpace = coordinateSpace
-    }
-}
-
-private struct ModeObservationKeyboardPayload: Codable {
-    let keyCode: Int
-    let characters: String?
-    let charactersIgnoringModifiers: String?
-    let isRepeat: Bool
-}
-
-private struct ModeObservationContextSnapshot: Codable {
-    let appName: String
-    let appBundleId: String
-    let windowTitle: String?
-    let windowId: String?
-    let isFrontmost: Bool
 }
 
 private enum ModeObservationCaptureError: LocalizedError {
